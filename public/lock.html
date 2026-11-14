@@ -112,18 +112,18 @@
 
   /* face view */
   .room-big { font-size: .85em; letter-spacing: .25em; color: var(--muted); margin-top: .2em; }
-  .face-ring { position: relative; width: 72%; aspect-ratio: 1; margin: 1.1em 0 .9em; }
-  .face-ring video { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transform: scaleX(-1); background: #0b111c; display: block; }
-  .face-ring svg { position: absolute; inset: -7%; width: 114%; height: 114%; }
+  .face-ring { position: relative; width: 92%; aspect-ratio: 4/3; margin: 1.1em 0 .9em; }
+  .face-ring video { width: 100%; height: 100%; object-fit: contain; border-radius: .8em; transform: scaleX(-1); background: #0b111c; display: block; }
+  .face-ring svg { position: absolute; inset: -4%; width: 108%; height: 108%; overflow: visible; }
   .ring-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 3; }
-  .ring-scan { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 60 254; transform-origin: 50% 50%; animation: spin 1.6s linear infinite; }
-  .ring-prog { fill: none; stroke: var(--ok); stroke-width: 3.4; stroke-linecap: round; stroke-dasharray: 0 314; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dasharray .35s; }
+  .ring-scan { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 60 254; animation: spin 1.6s linear infinite; }
+  .ring-prog { fill: none; stroke: var(--ok); stroke-width: 3.4; stroke-linecap: round; stroke-dasharray: 0 314; transition: stroke-dasharray .35s; }
   .face-ring.idle .ring-scan { stroke: rgba(255,255,255,.18); }
   .face-ring.verifying .ring-scan { stroke: #b48bff; animation-duration: .7s; }
   .face-ring.denied { animation: shake .45s; }
   .face-ring.denied .ring-scan { stroke: var(--bad); }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .cam-off { position: absolute; inset: 0; display: none; place-items: center; text-align: center; border-radius: 50%; background: #0b111c; color: var(--muted); font-size: .85em; padding: 1.2em; }
+  @keyframes spin { to { stroke-dashoffset: -314; } }
+  .cam-off { position: absolute; inset: 0; display: none; place-items: center; text-align: center; border-radius: .8em; background: #0b111c; color: var(--muted); font-size: .85em; padding: 1.2em; }
   .face-ring.nocam .cam-off { display: grid; }
   .msg { min-height: 2.6em; text-align: center; font-size: 1em; line-height: 1.3; }
   .msg small { display: block; color: var(--muted); font-size: .78em; margin-top: .25em; }
@@ -224,7 +224,7 @@
         <div class="face-ring idle" id="ring">
           <video id="video" playsinline muted autoplay></video>
           <div class="cam-off" id="camOff">Camera unavailable</div>
-          <svg viewBox="0 0 110 110"><circle class="ring-track" cx="55" cy="55" r="50"/><circle class="ring-scan" cx="55" cy="55" r="50"/><circle class="ring-prog" id="prog" cx="55" cy="55" r="50"/></svg>
+          <svg viewBox="0 0 108 81" preserveAspectRatio="none"><rect class="ring-track" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-scan" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-prog" id="prog" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/></svg>
         </div>
         <div class="msg" id="faceMsg">Starting Face ID…</div>
         <button class="switch" id="toKeypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>Use keypad</button>
