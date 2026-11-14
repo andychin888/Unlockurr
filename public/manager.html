@@ -69,8 +69,19 @@
   .pfp-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .tag.warn { color: #b45309; border-color: color-mix(in srgb, #f59e0b 45%, var(--border)); background: color-mix(in srgb, #f59e0b 12%, transparent); }
   .tag.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); background: color-mix(in srgb, var(--bad) 10%, transparent); }
-  .h2-link { all: unset; cursor: pointer; border-radius: 6px; } .h2-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-  .h2-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .h2-click { position: relative; cursor: pointer; border-radius: 16px 16px 0 0; transition: background .15s; }
+  .h2-click:hover { background: var(--surface-2); color: var(--text); }
+  .h2-link { all: unset; } .h2-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+  .h2-link:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .h2-click .tag { position: relative; pointer-events: none; }
+  .cat-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .cat-chip { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 99px; background: var(--surface-2); font-size: 12.5px; overflow: hidden; }
+  .cat-chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); }
+  .cat-chip button { all: unset; cursor: pointer; padding: 3px 4px 3px 10px; }
+  .cat-chip button.x { display: grid; place-items: center; padding: 3px 8px 3px 5px; color: var(--muted); }
+  .cat-chip button.x:hover { color: var(--bad); }
+  .cat-chip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 99px; }
+
   .ov { padding: 4px 16px 16px; } .ov-h { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 0 8px; }
   .ov-h b { font-size: 15px; } .ov-h span { color: var(--muted); font-size: 12.5px; }
   .ov-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 11px; margin-top: 8px; cursor: pointer; background: var(--surface); }
@@ -143,7 +154,7 @@
 <main>
   <div class="stack">
     <section class="card">
-      <h2><button type="button" class="h2-link" id="allUsers" title="View all users">Users</button> <span id="guestCount" class="tag">0</span></h2>
+      <h2 class="h2-click"><button type="button" class="h2-link" id="allUsers" title="View all users">Users</button> <span id="guestCount" class="tag">0</span></h2>
       <div id="guestList"></div>
     </section>
     <section class="card">
@@ -207,8 +218,10 @@
       <label class="f">Last name<input type="text" id="last" maxlength="30" autocomplete="off"></label>
     </div>
     <div class="row">
-      <label class="f">Category<input type="text" id="category" list="catList" maxlength="24" autocomplete="off" placeholder="e.g. Resident, Guest, Owner"></label>
-      <datalist id="catList"></datalist>
+      <div style="display:grid;gap:0;min-width:0">
+        <label class="f">Category<input type="text" id="category" maxlength="24" autocomplete="off" placeholder="Type any category, or pick one below"></label>
+        <div class="cat-chips" id="catChips"></div>
+      </div>
     </div>
 
     <div class="sect">
@@ -334,10 +347,9 @@
 
     for (const k of ['first', 'last']) $(k).oninput = e => { draft[k] = e.target.value; dirty = true; paintAvatar(); };
     // category: free text, suggestions = common roles + any already used on this lock
-    const cats = [...new Set(['Resident', 'Guest', 'Owner', 'Staff', 'Family', 'Cleaner', ...S.users.map(u => u.category).filter(Boolean)])];
-    $('catList').innerHTML = ''; for (const c of cats) { const o = document.createElement('option'); o.value = c; $('catList').appendChild(o); }
     $('category').value = draft.category || '';
-    $('category').oninput = e => { draft.category = e.target.value; dirty = true; };
+    $('category').oninput = e => { draft.category = e.target.value; dirty = true; paintCats(); };
+    paintCats();
     paintAccess();
     for (const r of document.querySelectorAll('input[name=accType]')) r.onchange = () => {
       if (r.value === 'scheduled' && draft.access?.type !== 'scheduled') {
@@ -462,6 +474,8 @@
     if (!draft.pins.length && !draft.faces.length && !confirm('This user has no PIN or face and won’t be able to unlock. Save anyway?')) return;
     S = UL.load();
     const rec = { ...draft, first, last }; delete rec.isNew;
+    // saving a user with a category brings it back into suggestions if it had been removed
+    if (rec.category) S.hiddenCats = (S.hiddenCats || []).filter(c => c.toLowerCase() !== rec.category.toLowerCase());
     const i = S.users.findIndex(u => u.id === rec.id);
     if (i >= 0) S.users[i] = rec; else S.users.push(rec);
     // re-check PIN uniqueness against latest data
@@ -517,6 +531,31 @@
     await enrollFrom(c, c.width, c.height, $('camMsg'));
     $('camShot').disabled = draft.faces.length >= MAX_FACES;
   };
+
+  /* ---------- category suggestions ---------- */
+  const DEFAULT_CATS = ['Resident', 'Guest', 'Owner', 'Staff', 'Family', 'Cleaner'];
+  const X_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  function catSuggestions() {
+    const st = UL.load(), hidden = new Set((st.hiddenCats || []).map(c => c.toLowerCase())), seen = new Set(), out = [];
+    for (const c of [...DEFAULT_CATS, ...st.users.map(u => (u.category || '').trim())]) {
+      const k = c.toLowerCase(); if (c && !hidden.has(k) && !seen.has(k)) { seen.add(k); out.push(c); }
+    }
+    return { list: out };
+  }
+  function setHiddenCats(fn) { const st = UL.load(); st.hiddenCats = fn(st.hiddenCats || []); UL.save(st); S = st; paintCats(); }
+  function paintCats() {
+    const box = $('catChips'); if (!box) return; box.innerHTML = '';
+    const { list } = catSuggestions(), cur = (draft.category || '').trim().toLowerCase();
+    for (const c of list) {
+      const chip = document.createElement('span'); chip.className = 'cat-chip' + (c.toLowerCase() === cur ? ' on' : '');
+      const pick = document.createElement('button'); pick.type = 'button'; pick.textContent = c; pick.title = `Use “${c}”`;
+      pick.onclick = () => { draft.category = c; $('category').value = c; dirty = true; paintCats(); };
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.innerHTML = X_SVG;
+      x.title = x.ariaLabel = `Remove “${c}” from suggestions`;
+      x.onclick = () => setHiddenCats(h => [...h.filter(v => v.toLowerCase() !== c.toLowerCase()), c]);
+      chip.append(pick, x); box.appendChild(chip);
+    }
+  }
 
   /* ---------- access period ---------- */
   const toLocalInput = ms => { if (!ms) return ''; const d = new Date(ms); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
