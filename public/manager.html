@@ -63,6 +63,7 @@
   .editor .body { display: grid; gap: 22px; }
   .row { display: flex; gap: 12px; flex-wrap: wrap; } .row > label { flex: 1 1 180px; }
   label.f { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); }
+  .req { color: var(--bad); font-weight: 600; }
   input[type=text], input[type=password], input.in { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 14px; }
   input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: var(--accent); }
   .sect h3 { font-size: 14px; margin: 0 0 4px; } .sect p.hint { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
@@ -214,8 +215,8 @@
       </div>
     </div>
     <div class="row">
-      <label class="f">First name<input type="text" id="first" maxlength="30" autocomplete="off"></label>
-      <label class="f">Last name<input type="text" id="last" maxlength="30" autocomplete="off"></label>
+      <label class="f"><span>First name <span class="req" aria-hidden="true">*</span></span><input type="text" id="first" required maxlength="30" autocomplete="off"></label>
+      <label class="f"><span>Last name <span class="req" aria-hidden="true">*</span></span><input type="text" id="last" required maxlength="30" autocomplete="off"></label>
     </div>
     <div class="row">
       <div style="display:grid;gap:0;min-width:0">
@@ -232,8 +233,8 @@
         <label><input type="radio" name="accType" value="scheduled"> Scheduled</label>
       </div>
       <div class="row" id="accRange">
-        <label class="f">From<input type="datetime-local" id="accStart" class="in"></label>
-        <label class="f">Until<input type="datetime-local" id="accEnd" class="in"></label>
+        <label class="f"><span>From <span class="req" aria-hidden="true">*</span></span><input type="datetime-local" id="accStart" class="in"></label>
+        <label class="f"><span>Until <span class="req" aria-hidden="true">*</span></span><input type="datetime-local" id="accEnd" class="in"></label>
       </div>
       <div class="err" id="accErr"></div>
     </div>
