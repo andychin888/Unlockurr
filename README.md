@@ -50,9 +50,3 @@ Drex only reads text, so images never leave the browser. Each unlock attempt wor
 Face unlock **fails closed**. If Drex is unreachable, the key is missing or the answer is malformed, the
 door stays locked and the screen shows "Face ID unavailable · use keypad". PIN entry always works.
 After 5 wrong PINs the keypad locks for 30 s.
-
-## Demo limitations
-
-- User data lives in the browser's `localStorage`. In a real deployment, store enrolments and do the
-  matching server-side, so a client can't fake a readout.
-- Tune the thresholds on your own enrolment data before relying on them.
