@@ -125,6 +125,12 @@
   @keyframes spin { to { stroke-dashoffset: -314; } }
   .cam-off { position: absolute; inset: 0; display: none; place-items: center; text-align: center; border-radius: .8em; background: #0b111c; color: var(--muted); font-size: .85em; padding: 1.2em; }
   .face-ring.nocam .cam-off { display: grid; }
+  .deny-banner { position: absolute; inset: 0; border-radius: .8em; display: grid; place-content: center; justify-items: center; gap: .35em;
+    background: rgba(40, 6, 12, .62); box-shadow: inset 0 0 0 .16em var(--bad); color: #fff; font-weight: 600; font-size: 1.05em;
+    opacity: 0; transform: scale(.96); transition: opacity .18s, transform .18s; pointer-events: none; }
+  .face-ring .deny-banner svg { position: static; inset: auto; width: 2.6em; height: 2.6em; padding: .45em; border-radius: 50%; background: var(--bad); }
+  .face-ring.unrecognized .deny-banner { opacity: 1; transform: none; }
+  .face-ring.unrecognized .ring-scan { stroke: var(--bad); animation-play-state: paused; }
   .msg { min-height: 2.6em; text-align: center; font-size: 1em; line-height: 1.3; }
   .msg small { display: block; color: var(--muted); font-size: .78em; margin-top: .25em; }
   .msg.bad { color: var(--bad); }
@@ -224,6 +230,7 @@
         <div class="face-ring idle" id="ring">
           <video id="video" playsinline muted autoplay></video>
           <div class="cam-off" id="camOff">Camera unavailable</div>
+          <div class="deny-banner" id="denyBanner" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Face not recognized</div>
           <svg viewBox="0 0 108 81" preserveAspectRatio="none"><rect class="ring-track" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-scan" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-prog" id="prog" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/></svg>
         </div>
         <div class="msg" id="faceMsg">Starting Face ID…</div>
@@ -259,7 +266,7 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const FRAMES_NEEDED = 3, SCAN_IDLE_MS = 200, SCAN_ACTIVE_MS = 30, DETECT_SIZE = 224, UNLOCK_MS = 6000, MAX_PIN = 8, MIN_PIN = 4;
+  const DENY_MS = 2500, FRAMES_NEEDED = 3, SCAN_IDLE_MS = 200, SCAN_ACTIVE_MS = 30, DETECT_SIZE = 224, UNLOCK_MS = 6000, MAX_PIN = 8, MIN_PIN = 4;
   let S = UL.load();
   let mode = 'face', busy = false, unlocked = false, cooldownUntil = 0;
   let frames = [], pin = '', fails = 0, lockoutUntil = 0, camOk = false, drexOk = null;
@@ -298,7 +305,7 @@
     const m = $('faceMsg'); m.className = 'msg' + (bad ? ' bad' : '');
     m.innerHTML = ''; m.append(text); if (sub) { const s = document.createElement('small'); s.textContent = sub; m.append(s); }
   }
-  function setRing(state) { const r = $('ring'); r.classList.remove('idle', 'verifying', 'denied'); if (state) r.classList.add(state); if (!camOk) r.classList.add('nocam'); }
+  function setRing(state) { const r = $('ring'); r.classList.remove('idle', 'verifying', 'denied', 'unrecognized'); if (state) r.classList.add(state); if (!camOk) r.classList.add('nocam'); }
   function setProgress(f) { $('prog').style.strokeDasharray = `${(f * 314).toFixed(1)} 314`; }
 
   /* ---------- keypad ---------- */
@@ -449,15 +456,17 @@
       if (user) return unlock(user, 'Face ID', `Drex p=${res.probability} · ${res.request_id}`);
     }
     led('red'); setTimeout(() => led(''), 1200);
-    setRing('denied'); setTimeout(() => setRing('idle'), 500);
     if (!res.ok) {
+      setRing('denied'); setTimeout(() => setRing('idle'), 500);
       setFaceMsg('Face ID unavailable', res.error === 'drex_unavailable' ? 'Drex offline · use keypad' : 'Error · use keypad', true);
       UL.addLog({ kind: 'deny', method: 'Face ID', detail: `Drex unavailable: ${res.message || res.error}` });
       cooldownUntil = Date.now() + 8000; checkDrex();
     } else {
+      setRing('denied'); $('ring').classList.add('unrecognized');
+      setTimeout(() => { if (!unlocked && Date.now() >= cooldownUntil - 50) setRing('idle'); }, DENY_MS);
       setFaceMsg('Face not recognized', 'Try again or use keypad', true);
       UL.addLog({ kind: 'deny', method: 'Face ID', detail: `${res.reason} · ${res.request_id}` });
-      cooldownUntil = Date.now() + 1500;
+      cooldownUntil = Date.now() + DENY_MS;
     }
   }
 
