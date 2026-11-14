@@ -81,6 +81,12 @@
   .cam { position: relative; aspect-ratio: 4/3; border-radius: 12px; overflow: hidden; background: #000; }
   .cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
   .cam .guide { position: absolute; left: 50%; top: 48%; width: 46%; aspect-ratio: .78; transform: translate(-50%,-50%); border: 2px dashed rgba(255,255,255,.7); border-radius: 50%; }
+  .crop-stage { position: relative; width: min(320px, 100%); aspect-ratio: 1; margin: 0 auto; border-radius: 12px; overflow: hidden; background: #000; touch-action: none; cursor: grab; user-select: none; }
+  .crop-stage.drag { cursor: grabbing; }
+  .crop-stage canvas { width: 100%; height: 100%; display: block; }
+  .crop-stage .mask { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgba(0,0,0,.55); outline: 2px solid rgba(255,255,255,.85); outline-offset: -2px; pointer-events: none; }
+  .crop-zoom { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+  .crop-zoom input { flex: 1; accent-color: var(--accent); }
   .dlg-f { display: flex; justify-content: space-between; gap: 8px; padding: 0 18px 16px; }
   .hidden { display: none !important; }
 </style>
@@ -126,6 +132,16 @@
     <div class="err" id="camMsg" style="color:var(--muted)">Center the face in the oval with good lighting. Capture 3–5 samples from slightly different angles.</div>
   </div>
   <div class="dlg-f"><button class="btn" id="camClose">Done</button><button class="btn primary" id="camShot">Capture sample</button></div>
+</dialog>
+
+<dialog id="cropDlg">
+  <div class="dlg-h">Crop profile photo</div>
+  <div class="dlg-b">
+    <div class="crop-stage" id="cropStage"><canvas id="cropCanvas" width="640" height="640"></canvas><div class="mask"></div></div>
+    <label class="crop-zoom">Zoom <input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1"></label>
+    <div class="err" style="color:var(--muted)">Drag to reposition. Scroll or use the slider to zoom.</div>
+  </div>
+  <div class="dlg-f"><button class="btn" id="cropCancel">Cancel</button><button class="btn primary" id="cropOk">Use photo</button></div>
 </dialog>
 
 <template id="editorTpl">
@@ -225,9 +241,9 @@
     for (const k of ['first', 'last']) $(k).oninput = e => { draft[k] = e.target.value; dirty = true; paintAvatar(); };
     $('pfpFile').onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
-      try { const img = await UL.fileToImage(f); draft.pfp = UL.squareCrop(img, img.naturalWidth, img.naturalHeight, null, 256); dirty = true; paintAvatar(); }
-      catch { alert('Could not read that image.'); }
       e.target.value = '';
+      let img; try { img = await UL.fileToImage(f); } catch { return alert('Could not read that image.'); }
+      setPfp(await openCrop(img, img.naturalWidth, img.naturalHeight));
     };
     $('pfpCam').onclick = () => openCam('pfp');
     $('pfpRemove').onclick = () => { draft.pfp = null; dirty = true; paintAvatar(); };
@@ -344,11 +360,11 @@
   $('camShot').onclick = async () => {
     const v = $('camVideo'); if (!camStream || v.readyState < 2) return;
     if (camMode === 'pfp') {
-      // mirror the frame so the photo matches the (mirrored) preview, then crop the centre square
+      // mirror the frame so the photo matches the (mirrored) preview, then let the user crop it
       const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
       const g = c.getContext('2d'); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(v, 0, 0);
-      draft.pfp = UL.squareCrop(c, c.width, c.height, null, 256); dirty = true; paintAvatar();
-      return closeCam();
+      closeCam();
+      return setPfp(await openCrop(c, c.width, c.height));
     }
     $('camShot').disabled = true;
     // snapshot the frame so thumbnail and descriptor come from the same image
@@ -357,6 +373,65 @@
     await enrollFrom(c, c.width, c.height, $('camMsg'));
     $('camShot').disabled = draft.faces.length >= MAX_FACES;
   };
+
+  /* ---------- profile photo crop ---------- */
+  function setPfp(url) { if (url && draft) { draft.pfp = url; dirty = true; paintAvatar(); } }
+  const PFP_SIZE = 256;
+  let crop = null;
+  function openCrop(src, w, h) {
+    return new Promise(resolve => {
+      crop = { src, w, h, zoom: 1, cx: w / 2, cy: h / 2, resolve };
+      $('cropZoom').value = 1;
+      drawCrop(); $('cropDlg').showModal();
+    });
+  }
+  // visible square side in source pixels at the current zoom (zoom 1 = shortest side fills the circle)
+  const cropSide = () => Math.min(crop.w, crop.h) / crop.zoom;
+  function clampCrop() {
+    const half = cropSide() / 2;
+    crop.cx = Math.min(Math.max(crop.cx, half), crop.w - half);
+    crop.cy = Math.min(Math.max(crop.cy, half), crop.h - half);
+  }
+  function renderCrop(ctx, size) {
+    const side = cropSide();
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, size, size);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(crop.src, crop.cx - side / 2, crop.cy - side / 2, side, side, 0, 0, size, size);
+  }
+  function drawCrop() { if (!crop) return; clampCrop(); const cv = $('cropCanvas'); renderCrop(cv.getContext('2d'), cv.width); }
+  function finishCrop(ok) {
+    if (!crop) return;
+    const { resolve } = crop; let url = null;
+    if (ok) { const c = document.createElement('canvas'); c.width = c.height = PFP_SIZE; renderCrop(c.getContext('2d'), PFP_SIZE); url = c.toDataURL('image/jpeg', 0.88); }
+    crop = null; if ($('cropDlg').open) $('cropDlg').close(); resolve(url);
+  }
+  function setZoom(z, fx = 0.5, fy = 0.5) {
+    // keep the point under (fx, fy) of the stage fixed while zooming
+    const before = cropSide(); crop.zoom = Math.min(4, Math.max(1, z)); const after = cropSide();
+    crop.cx += (fx - 0.5) * (before - after); crop.cy += (fy - 0.5) * (before - after);
+    $('cropZoom').value = crop.zoom; drawCrop();
+  }
+  $('cropZoom').oninput = e => crop && setZoom(+e.target.value);
+  $('cropOk').onclick = () => finishCrop(true);
+  $('cropCancel').onclick = () => finishCrop(false);
+  $('cropDlg').addEventListener('close', () => finishCrop(false));
+  {
+    const st = $('cropStage'); let drag = null;
+    st.addEventListener('pointerdown', e => { if (!crop) return; drag = { x: e.clientX, y: e.clientY }; st.setPointerCapture(e.pointerId); st.classList.add('drag'); });
+    st.addEventListener('pointermove', e => {
+      if (!drag || !crop) return;
+      const k = cropSide() / st.clientWidth;
+      crop.cx -= (e.clientX - drag.x) * k; crop.cy -= (e.clientY - drag.y) * k;
+      drag = { x: e.clientX, y: e.clientY }; drawCrop();
+    });
+    const end = () => { drag = null; st.classList.remove('drag'); };
+    st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+    st.addEventListener('wheel', e => {
+      if (!crop) return; e.preventDefault();
+      const r = st.getBoundingClientRect();
+      setZoom(crop.zoom * Math.exp(-e.deltaY * 0.0015), (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+    }, { passive: false });
+  }
 
   /* ---------- settings, log, status ---------- */
   $('room').value = S.room; $('hdrRoom').textContent = S.room;
