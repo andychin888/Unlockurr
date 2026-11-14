@@ -257,6 +257,32 @@
     border-radius: 1em .75em .75em 1em; transform-origin: calc(100% - 1.1em) 50%; transition: transform .6s cubic-bezier(.4,1.6,.5,1);
     background: linear-gradient(180deg, #fff, var(--metal-2) 45%, var(--metal-3)); box-shadow: 0 .4em .8em rgba(0,0,0,.45); }
   .lever.down { transform: rotate(-32deg); }
+  /* mechanical key override */
+  .lever-rose { cursor: pointer; }
+  .rose-cap { position: absolute; inset: .3em; border-radius: 50%; z-index: 2;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--metal-2) 60%, var(--metal-3));
+    box-shadow: 0 .12em .25em rgba(0,0,0,.45), inset 0 0 0 .08em rgba(255,255,255,.7), inset 0 -.12em .2em rgba(0,0,0,.18);
+    transition: transform .55s cubic-bezier(.3,1.3,.5,1), opacity .45s; }
+  .lever-wrap.open-cap .rose-cap { transform: translate(1.8em, 2.6em) rotate(50deg) scale(.85); opacity: 0; pointer-events: none; }
+  .keyhole { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; }
+  .keyhole svg { width: 1.3em; height: 1.8em; transform: translateY(.32em); }
+  .lever-wrap.open-cap .keyhole::after { content: ""; position: absolute; inset: -.35em; border-radius: 50%; border: .16em solid var(--accent);
+    animation: keyPulse 1.4s ease-out infinite; pointer-events: none; }
+  .lever-wrap.keyed .keyhole::after { display: none; }
+  @keyframes keyPulse { from { opacity: .9; transform: scale(.85); } to { opacity: 0; transform: scale(1.25); } }
+  .mkey { position: absolute; left: 50%; top: 50%; width: 2.6em; height: 5.4em; margin: -5.4em 0 0 -1.3em; transform-origin: 50% 100%;
+    opacity: 0; pointer-events: none; z-index: 3; filter: drop-shadow(0 .25em .3em rgba(0,0,0,.45)); }
+  .mkey svg { display: block; width: 100%; height: 100%; }
+  .mkey.use { animation: keyUse 1.3s forwards; }
+  @keyframes keyUse {
+    0% { opacity: 0; transform: translate(2.4em, 4.8em) scale(1.9) rotate(-10deg); animation-timing-function: cubic-bezier(.2,.8,.3,1); }
+    20% { opacity: 1; }
+    55% { opacity: 1; transform: none; }
+    68% { opacity: 1; transform: none; animation-timing-function: cubic-bezier(.5,0,.3,1); }
+    100% { opacity: 1; transform: rotate(90deg); }
+  }
+  .switches { margin-top: auto; display: flex; gap: .5em; }
+  .switches .switch { margin-top: 0; }
   .card-slot { width: 40%; height: .35em; border-radius: .2em; background: #23262c; box-shadow: inset 0 1px 2px #000, 0 1px 0 rgba(255,255,255,.7); }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
@@ -305,7 +331,7 @@
                 <svg viewBox="0 0 108 81" preserveAspectRatio="none"><rect class="ring-track" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-scan" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-prog" id="prog" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/></svg>
               </div>
               <div class="msg" id="faceMsg">Starting Face ID…</div>
-              <button class="switch" id="toKeypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>Use keypad</button>
+              <div class="switches"><button class="switch" id="toKeypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>Use keypad</button><button class="switch" id="toKey"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3M16 7l3 3M14 9l2 2"/></svg>Use key</button></div>
             </section>
 
             <!-- PIN view -->
@@ -328,7 +354,7 @@
           </div></div>
 
           <div class="card-slot" title="Key card slot"></div>
-          <div class="lever-wrap"><div class="lever" id="lever"></div><div class="lever-rose"></div></div>
+          <div class="lever-wrap" id="leverWrap"><div class="lever" id="lever"></div><div class="lever-rose" id="rose"><div class="keyhole" id="keyhole" title="Keyhole"><svg viewBox="0 0 20 28"><circle cx="10" cy="9" r="6.5" fill="#6d727a"/><circle cx="10" cy="9" r="5.2" fill="#0c0d0f"/><path d="M7.2 12 H12.8 L14.6 26 H5.4 Z" fill="#0c0d0f"/></svg></div><div class="rose-cap" id="roseCap" title="Lift the cap to use a key"></div></div><div class="mkey" id="key"><svg viewBox="0 0 26 54" width="100%" height="100%"><defs><linearGradient id="gKey" x1="0" x2="1"><stop offset="0" stop-color="#8a6a22"/><stop offset=".45" stop-color="#f3d98f"/><stop offset="1" stop-color="#a47f2c"/></linearGradient></defs><path fill="url(#gKey)" fill-rule="evenodd" d="M13 1a11 11 0 1 1 0 22a11 11 0 1 1 0-22zm0 6.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z"/><rect x="8.5" y="21.5" width="9" height="4.5" rx="1.2" fill="url(#gKey)"/><rect x="11" y="25" width="4" height="29" fill="url(#gKey)"/><rect x="11" y="31" width="4" height="1.2" fill="rgba(0,0,0,.25)"/></svg></div></div>
         </div>
         <div class="kick"></div>
       </div>
@@ -548,7 +574,7 @@
     check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#04140e" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
     wa.querySelector('.w-check')?.remove(); wa.appendChild(check);
     $('wName').textContent = UL.fullName(user);
-    $('wSub').textContent = method === 'Face ID' ? 'Face ID · verified by Drex' : 'Unlocked with PIN';
+    $('wSub').textContent = method === 'Face ID' ? 'Face ID · verified by Drex' : method === 'Key' ? 'Unlocked with mechanical key' : 'Unlocked with PIN';
     const w = $('welcome'); w.classList.remove('show'); void w.offsetWidth; w.classList.add('show');
     led('green'); clearTimeout(leaveTimer); hint('');
     setTimeout(() => $('lever').classList.add('down'), 200);
@@ -573,6 +599,7 @@
     setTimeout(() => { doorMoving = false; autoLock(); }, 1750);
   }
   function autoLock() {
+    $('key').classList.remove('use'); $('leverWrap').classList.remove('keyed'); showKeyhole(false);
     unlocked = false; cooldownUntil = Date.now() + 1500; setMode('face');
     // two short red blinks: bolt thrown
     led('red'); setTimeout(() => led(''), 300); setTimeout(() => led('red'), 520); setTimeout(() => led(''), 820);
@@ -623,8 +650,28 @@
   function sleep() {
     if (!awake || unlocked) return;
     awake = false; clearTimeout(leaveTimer); document.body.classList.remove('awake'); zoom(false);
-    setMode('face'); led(''); defaultHint();
+    setMode('face'); led(''); showKeyhole(false); defaultHint();
   }
+  /* ---------- mechanical key override ---------- */
+  const KEY_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#15402f"/><g transform="translate(32 32) rotate(45) translate(-13 -27)"><circle cx="13" cy="12" r="10" fill="none" stroke="#e9c870" stroke-width="5"/><rect x="11" y="21" width="4.5" height="30" fill="#e9c870"/><rect x="15" y="40" width="6" height="4" fill="#e9c870"/><rect x="15" y="46" width="4" height="4" fill="#e9c870"/></g></svg>');
+  const MASTER_KEY = { id: 'master-key', first: 'Master', last: 'Key', pfp: KEY_AVATAR };
+  function showKeyhole(on) { $('leverWrap').classList.toggle('open-cap', on); }
+  function revealKey() {
+    if (!awake || unlocked || busy) return;
+    lastActivity = Date.now(); if (mode !== 'face') setMode('face');
+    showKeyhole(true); setFaceMsg('Key override', 'Tap the keyhole on the handle');
+  }
+  $('toKey').onclick = revealKey;
+  $('roseCap').addEventListener('click', e => { if (awake) { e.stopPropagation(); revealKey(); } });
+  $('keyhole').addEventListener('click', e => {
+    if (!awake || unlocked || busy || !$('leverWrap').classList.contains('open-cap')) return;
+    e.stopPropagation(); busy = true; lastActivity = Date.now(); clearTimeout(leaveTimer);
+    frames = []; setProgress(0); setRing('idle'); setFaceMsg('Key inserted…', 'Turning the cylinder');
+    $('leverWrap').classList.add('keyed');
+    const k = $('key'); k.classList.remove('use'); void k.offsetWidth; k.classList.add('use');
+    setTimeout(() => { busy = false; unlock(MASTER_KEY, 'Key', 'Mechanical key override'); }, 1350);
+  });
+
   function pointerOverLock() { const el = document.elementFromPoint(mouse.x, mouse.y); return !!el && lockEl.contains(el); }
   function checkLeave() {
     if (!awake || busy || unlocked || !canHover || mouse.x < 0) return;
