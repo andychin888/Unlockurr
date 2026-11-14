@@ -24,7 +24,8 @@ Open **/manager.html** and **/lock.html** side by side in the same browser. They
 `localStorage` and update live.
 
 1. In the Lock Manager, click **+ Add guest**. Enter a first and last name and upload an optional photo.
-2. Add one or more PINs (4–8 digits, unique per lock, stored as SHA-256 hashes).
+2. Add one or more PINs (4–8 digits, unique per lock). The lock checks a SHA-256 hash; the Lock Manager also keeps
+   the PIN itself so the eye button can show it.
 3. Under Face ID, capture 3–5 samples with the camera, or upload a face photo.
 4. **Save guest**. Then look at the lock's camera or tap **Use keypad**.
 
