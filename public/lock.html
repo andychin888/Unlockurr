@@ -22,19 +22,16 @@
   .mgr-link {
     position: fixed; top: 14px; right: 16px; z-index: 20; font-size: 13px; color: #3a2c1a;
     background: rgba(255,255,255,.6); padding: 7px 12px; border-radius: 999px; text-decoration: none;
-    backdrop-filter: blur(6px); border: 1px solid rgba(0,0,0,.08); transition: opacity .4s;
+    border: 1px solid rgba(0,0,0,.08); transition: opacity .4s;
   }
   .mgr-link:hover { background: rgba(255,255,255,.85); }
   body.zoomed .mgr-link { opacity: 0; pointer-events: none; }
 
   /* ---------- scene + zoom ---------- */
-  .scene { position: fixed; inset: 0; transform-origin: 0 0; transition: transform 1s cubic-bezier(.22,.8,.2,1); }
-  .vignette { position: fixed; inset: 0; z-index: 10; pointer-events: none; opacity: 0; transition: opacity 1s;
-    background: radial-gradient(ellipse 42% 58% at 50% 50%, transparent 50%, rgba(8,5,3,.82)); }
-  body.zoomed .vignette { opacity: 1; }
+  .scene { position: fixed; inset: 0; transition: transform 1s cubic-bezier(.22,.8,.2,1); }
   .hint { position: fixed; left: 50%; bottom: 3.2vh; z-index: 15; transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
-    padding: 8px 16px; border-radius: 99px; background: rgba(20,14,9,.72); color: #f6ead6; font-size: 13.5px; letter-spacing: .01em;
-    backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.12); transition: opacity .35s, transform .35s; white-space: nowrap; }
+    padding: 8px 16px; border-radius: 99px; background: rgba(20,14,9,.82); color: #f6ead6; font-size: 13.5px; letter-spacing: .01em;
+    border: 1px solid rgba(255,255,255,.12); transition: opacity .35s, transform .35s; white-space: nowrap; }
   .hint.show { opacity: 1; transform: translate(-50%, 0); }
 
   /* ---------- corridor ---------- */
@@ -81,7 +78,7 @@
     box-shadow: inset calc(var(--dh) * .012) calc(var(--dh) * .012) calc(var(--dh) * .02) rgba(0,0,0,.45); }
   .spill { position: absolute; top: 100%; left: -12%; right: -12%; height: var(--floor); pointer-events: none; opacity: 0; transition: opacity 1.6s;
     background: linear-gradient(180deg, rgba(255,214,150,.55), rgba(255,200,130,.12) 70%, transparent);
-    clip-path: polygon(12% 0, 88% 0, 118% 100%, -18% 100%); mix-blend-mode: screen; }
+    clip-path: polygon(12% 0, 88% 0, 118% 100%, -18% 100%); }
   body.door-open .spill { opacity: 1; }
   .sconce { position: absolute; top: 30%; width: calc(var(--dh) * .045); height: calc(var(--dh) * .11); }
   .sconce.l { right: calc(100% + var(--dh) * .13); } .sconce.r { left: calc(100% + var(--dh) * .13); }
@@ -106,9 +103,11 @@
       repeating-linear-gradient(92deg, rgba(255,255,255,.025) 0 3px, transparent 3px 9px, rgba(0,0,0,.05) 9px 11px),
       linear-gradient(90deg, #4a2a15, #6b3f22 18%, #82502d 50%, #6b3f22 82%, #4a2a15);
     box-shadow: inset 0 0 0 2px rgba(0,0,0,.25), inset -10px 0 24px rgba(0,0,0,.25);
-    transition: transform 1.7s cubic-bezier(.45,.05,.2,1), filter 1.7s;
+    transition: transform 1.7s cubic-bezier(.45,.05,.2,1); backface-visibility: hidden;
   }
-  .door.open { transform: rotateY(80deg); filter: brightness(.82); }
+  .door::after { content: ""; position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 1.7s; pointer-events: none; }
+  .door.open { transform: rotateY(80deg); }
+  .door.open::after { opacity: .18; }
   .panel { position: absolute; left: 11%; right: 11%; border-radius: 3px;
     box-shadow: inset 3px 3px 6px rgba(0,0,0,.45), inset -2px -2px 4px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.06); }
   .panel.p1 { top: 6%; height: 32%; } .panel.p2 { top: 62%; height: 31%; }
@@ -123,7 +122,7 @@
   .lock {
     /* laid out at a normal size, then scaled down to fit the door (see sizeLock) so text never hits Chrome's minimum font size */
     position: absolute; right: 7%; top: 41%; width: 22.3em; font-size: 14px; cursor: pointer; outline: none;
-    transform: scale(var(--lk, .16)); transform-origin: right top;
+    transform: scale(var(--lk, .16)); transform-origin: right top; transition: transform 1s cubic-bezier(.22,.8,.2,1); z-index: 3;
     padding: 1.1em 1em 1.3em; border-radius: 2.4em 2.4em 1.6em 1.6em;
     background: linear-gradient(100deg, var(--metal-3), var(--metal-1) 22%, var(--metal-2) 55%, var(--metal-1) 80%, var(--metal-3));
     box-shadow: 0 1.2em 2.4em rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 3px rgba(0,0,0,.25);
@@ -133,8 +132,7 @@
   .screen-sleep { position: absolute; inset: 0; z-index: 6; pointer-events: none; transition: opacity .6s;
     background: linear-gradient(135deg, rgba(255,255,255,.08), transparent 35%), linear-gradient(160deg, #0b0e13, #020304 65%); }
   body.awake .screen-sleep { opacity: 0; }
-  body.awake .screen { animation: wakeOn .8s ease-out; }
-  @keyframes wakeOn { 0% { filter: brightness(2.2) saturate(.4); } 100% { filter: none; } }
+  body:not(.awake) .face-ring video { visibility: hidden; }
   .lock-head { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 .4em; }
   .brand { display: inline-flex; align-items: center; gap: .5em; }
   .brand-mark { width: 1.9em; height: 1.9em; border-radius: .55em; display: grid; place-items: center; flex: none;
@@ -338,7 +336,6 @@
     <div class="spill"></div>
   </div>
 </div>
-<div class="vignette"></div>
 <div class="hint" id="hint"></div>
 
 <script>
@@ -555,8 +552,8 @@
     const w = $('welcome'); w.classList.remove('show'); void w.offsetWidth; w.classList.add('show');
     led('green'); clearTimeout(leaveTimer); hint('');
     setTimeout(() => $('lever').classList.add('down'), 200);
-    setTimeout(() => zoom(false), 1500);
-    setTimeout(openDoor, 2200);
+    setTimeout(() => zoom(false), 1400);
+    setTimeout(openDoor, 2500);
   }
 
   /* ---------- door ---------- */
@@ -590,16 +587,27 @@
   function defaultHint() {
     hint(doorOpen ? 'Click the door to close it' : awake || unlocked ? '' : canHover ? 'Hover over the lock to wake it' : 'Tap the lock to wake it');
   }
+  const SCENE_ZOOM = 1.5;
   function zoom(on) {
     const sc = $('scene');
-    if (!on) { sc.style.transform = ''; document.body.classList.remove('zoomed'); return; }
-    // measure the lock in the un-zoomed scene, then scale so it fills ~90% of the viewport
-    const prev = sc.style.transform; sc.style.transition = 'none'; sc.style.transform = '';
-    const r = lockEl.getBoundingClientRect();
-    sc.style.transform = prev; void sc.offsetWidth; sc.style.transition = '';
-    const vw = innerWidth, vh = innerHeight, k = Math.min(vh * .9 / r.height, vw * .9 / r.width);
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    sc.style.transform = `translate(${vw / 2 - k * cx}px, ${vh / 2 - k * cy}px) scale(${k})`;
+    if (!on) { sc.style.transform = ''; lockEl.style.transform = ''; document.body.classList.remove('zoomed'); return; }
+    // measure at rest (no zoom), so repeated calls / resizes stay exact
+    const prevS = sc.style.transform, prevL = lockEl.style.transform;
+    sc.style.transition = lockEl.style.transition = 'none'; sc.style.transform = lockEl.style.transform = '';
+    const r = lockEl.getBoundingClientRect(), d = $('door').getBoundingClientRect();
+    const w = lockEl.offsetWidth, h = lockEl.offsetHeight;
+    sc.style.transform = prevS; lockEl.style.transform = prevL; void sc.offsetWidth;
+    sc.style.transition = lockEl.style.transition = '';
+    const vw = innerWidth, vh = innerHeight;
+    const O = { x: r.left + r.width / 2, y: r.top + r.height / 2 };          // zoom the corridor toward the lock
+    const T = Math.min(vh * .9 / h, vw * .9 / w);                            // on-screen scale of the lock when focused
+    const L = T / SCENE_ZOOM;                                                // lock's own scale inside the zoomed scene
+    const P0 = { x: d.left + lockEl.offsetLeft + w, y: d.top + lockEl.offsetTop };   // transform-origin (right top) in scene coords
+    const want = { x: O.x + (vw / 2 - O.x) / SCENE_ZOOM, y: O.y + (vh / 2 - O.y) / SCENE_ZOOM };
+    const tx = want.x - P0.x + L * w / 2, ty = want.y - P0.y - L * h / 2;
+    sc.style.transformOrigin = `${O.x}px ${O.y}px`;
+    sc.style.transform = `scale(${SCENE_ZOOM})`;
+    lockEl.style.transform = `translate(${tx}px, ${ty}px) scale(${L})`;
     document.body.classList.add('zoomed');
   }
   function sizeLock() { lockEl.style.setProperty('--lk', ($('door').clientWidth * .16 / lockEl.offsetWidth).toFixed(4)); }
