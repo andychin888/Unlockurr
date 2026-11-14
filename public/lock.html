@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
 <script>window.tf = faceapi.tf;</script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-<script src="shared.js?v=5"></script>
+<script src="shared.js?v=6"></script>
 <style>
   :root {
     --brass: #c9a24a; --brass-dk: #8a6a22;
@@ -377,7 +377,7 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const DENY_MS = 2500, FRAMES_NEEDED = 3, SCAN_IDLE_MS = 200, SCAN_ACTIVE_MS = 30, DETECT_SIZE = 224, MAX_PIN = 8, MIN_PIN = 4;
+  const DENY_MS = 2500, FRAMES_NEEDED = 3, SCAN_IDLE_MS = 200, SCAN_ACTIVE_MS = 80, DETECT_SIZE = 224, MAX_PIN = 8, MIN_PIN = 4;
   let S = UL.load();
   let mode = 'face', busy = false, unlocked = false, cooldownUntil = 0;
   let frames = [], pin = '', fails = 0, lockoutUntil = 0, camOk = false, drexOk = null;
@@ -818,6 +818,7 @@
     const t0 = Date.now(); let hits = 0, peak = 0, seen = Date.now();
     while (Date.now() - t0 < CHALLENGE_MS) {
       if (shouldStop()) return { passed: false, stopped: true };
+      await new Promise(r => setTimeout(r, 60));   // ~12 checks/s leaves the GPU free to draw the page smoothly
       const r = await UL.landmarks($('video'), DETECT_SIZE);
       if (!r) { if (Date.now() - seen > FACE_LOST_MS) return { passed: false, reason: 'face left the camera' }; continue; }
       seen = Date.now();
@@ -900,7 +901,10 @@
     if (!camOk) { idleMsg(); return; }
     setFaceMsg('Loading Face ID…', 'Preparing face models');
     try { await UL.loadFace(); } catch (e) { console.error(e); setFaceMsg('Face models failed to load', 'Use the keypad', true); return; }
-    loadPhoneModel().catch(e => console.warn('phone detector', e));
+    // compile every model's GPU programs now, while the lock is asleep, so waking it doesn't freeze the page
+    setFaceMsg('Starting Face ID…', 'Warming up');
+    try { await UL.warmUp([DETECT_SIZE], $('video')); } catch (e) { console.warn('face warm-up', e); }
+    try { const m = await loadPhoneModel(); await m.detect($('video')); } catch (e) { console.warn('phone detector', e); }
     idleMsg(); scanLoop();
   })();
 })();

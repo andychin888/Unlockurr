@@ -70,6 +70,8 @@ const UL = (() => {
   function loadFace() {
     if (!ready) ready = (async () => {
       if (!window.faceapi) throw new Error('face-api.js failed to load');
+      // reuse compiled GPU programs across input sizes instead of compiling a new one per shape (big first-use stalls)
+      try { faceapi.tf.env().set('WEBGL_USE_SHAPES_UNIFORMS', true); } catch {}
       try { await faceapi.tf.setBackend('webgl'); } catch {}
       await faceapi.tf.ready();
       await Promise.all([
@@ -80,6 +82,15 @@ const UL = (() => {
     })();
     ready.catch(() => { ready = null; });
     return ready;
+  }
+  // run every network once so their GPU programs compile now (while nothing is animating), not on first use
+  async function warmUp(sizes = [224], video = null) {
+    const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+    const g = c.getContext('2d'); g.fillStyle = '#777'; g.fillRect(0, 0, 160, 160);
+    for (const inputSize of sizes) for (const src of video ? [c, video] : [c])
+      await faceapi.detectSingleFace(src, new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptor();
+    await faceapi.nets.faceLandmark68Net.detectLandmarks(c);
+    await faceapi.nets.faceRecognitionNet.computeFaceDescriptor(c);
   }
   async function describe(input, inputSize = 320) {
     const r = await faceapi
@@ -118,5 +129,5 @@ const UL = (() => {
   }
 
   return { load, save, addLog, hashPin, validPin, uid, fullName, accessStatus, accessLabel, fmtWhen, initials, avatar,
-    loadFace, describe, landmarks, dist, squareCrop, fileToImage, KEY };
+    loadFace, warmUp, describe, landmarks, dist, squareCrop, fileToImage, KEY };
 })();
