@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Unlockurr Lock Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
-<script src="shared.js"></script>
+<script src="shared.js?v=4"></script>
 <style>
   :root {
     --bg: #f3f5f9; --surface: #ffffff; --surface-2: #f7f8fb; --border: #e2e6ee; --text: #121826; --muted: #667085;
@@ -52,8 +52,8 @@
   .guest { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; border-top: 1px solid var(--border); }
   .guest:hover { background: var(--surface-2); } .guest.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   .guest .meta { flex: 1; min-width: 0; } .guest .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .guest .tags { display: flex; gap: 6px; margin-top: 2px; }
-  .tag { font-size: 11.5px; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+  .guest .tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 3px; }
+  .tag { white-space: nowrap; font-size: 11.5px; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
   .tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
   .empty { padding: 26px 16px; text-align: center; color: var(--muted); border-top: 1px solid var(--border); }
   .avatar { border-radius: 50%; display: grid; place-items: center; overflow: hidden; color: #fff; font-weight: 600; flex: none; }
@@ -67,6 +67,22 @@
   input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: var(--accent); }
   .sect h3 { font-size: 14px; margin: 0 0 4px; } .sect p.hint { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
   .pfp-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .tag.warn { color: #b45309; border-color: color-mix(in srgb, #f59e0b 45%, var(--border)); background: color-mix(in srgb, #f59e0b 12%, transparent); }
+  .tag.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  .h2-link { all: unset; cursor: pointer; border-radius: 6px; } .h2-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  .h2-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ov { padding: 4px 16px 16px; } .ov-h { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 0 8px; }
+  .ov-h b { font-size: 15px; } .ov-h span { color: var(--muted); font-size: 12.5px; }
+  .ov-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 11px; margin-top: 8px; cursor: pointer; background: var(--surface); }
+  .ov-row:hover { background: var(--surface-2); } .ov-row .nm { font-weight: 600; } .ov-row .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .ov-row .tags { display: flex; flex-wrap: wrap; gap: 4px 6px; justify-content: flex-end; }
+  .seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+  .seg label { position: relative; padding: 6px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label:has(input:checked) { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #accRange { margin-top: 10px; } #accRange.hidden { display: none; }
+  input[type=datetime-local].in { padding: 8px 10px; }
   .pin-add { display: flex; gap: 8px; flex-wrap: wrap; } .pin-add input { flex: 1 1 140px; letter-spacing: .25em; font-variant-numeric: tabular-nums; }
   .pin-list { display: grid; gap: 6px; margin-top: 10px; }
   .pin-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
@@ -121,13 +137,13 @@
   <div><h1>Lock Manager</h1><div class="sub">Room <span id="hdrRoom">1208</span> · Face ID by Drex</div></div>
   <div class="spacer"></div>
   <a class="btn" href="lock.html" target="unlockurr-lock">Open door lock ↗</a>
-  <button class="btn primary" id="addGuest">+ Add guest</button>
+  <button class="btn primary" id="addGuest">+ Add user</button>
 </header>
 
 <main>
   <div class="stack">
     <section class="card">
-      <h2>Guests <span id="guestCount" class="tag">0</span></h2>
+      <h2><button type="button" class="h2-link" id="allUsers" title="View all users">Users</button> <span id="guestCount" class="tag">0</span></h2>
       <div id="guestList"></div>
     </section>
     <section class="card">
@@ -141,7 +157,7 @@
   </div>
 
   <div class="stack">
-    <section class="card editor" id="editor"><div class="placeholder">Select a guest or click <b>+ Add guest</b> to program PINs and faces.</div></section>
+    <section class="card editor" id="editor"><div class="placeholder">Select a user or click <b>+ Add user</b> to program PINs and faces.</div></section>
     <section class="card">
       <h2>Activity <button class="btn sm" id="clearLog">Clear</button></h2>
       <div class="log" id="log"></div>
@@ -171,7 +187,7 @@
 </dialog>
 
 <template id="editorTpl">
-  <h2><span id="edTitle">New guest</span></h2>
+  <h2><span id="edTitle">New user</span></h2>
   <div class="body">
     <div class="sect">
       <div class="pfp-row">
@@ -189,6 +205,24 @@
     <div class="row">
       <label class="f">First name<input type="text" id="first" maxlength="30" autocomplete="off"></label>
       <label class="f">Last name<input type="text" id="last" maxlength="30" autocomplete="off"></label>
+    </div>
+    <div class="row">
+      <label class="f">Category<input type="text" id="category" list="catList" maxlength="24" autocomplete="off" placeholder="e.g. Resident, Guest, Owner"></label>
+      <datalist id="catList"></datalist>
+    </div>
+
+    <div class="sect">
+      <h3>Access period</h3>
+      <p class="hint">How long this profile can unlock the door, by PIN or Face ID.</p>
+      <div class="seg" role="radiogroup" aria-label="Access period">
+        <label><input type="radio" name="accType" value="permanent"> Permanent</label>
+        <label><input type="radio" name="accType" value="scheduled"> Scheduled</label>
+      </div>
+      <div class="row" id="accRange">
+        <label class="f">From<input type="datetime-local" id="accStart" class="in"></label>
+        <label class="f">Until<input type="datetime-local" id="accEnd" class="in"></label>
+      </div>
+      <div class="err" id="accErr"></div>
     </div>
 
     <div class="sect">
@@ -217,8 +251,8 @@
     </div>
 
     <div class="actions">
-      <button class="btn danger" id="delGuest">Delete guest</button>
-      <div class="row" style="gap:8px"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="save">Save guest</button></div>
+      <button class="btn danger" id="delGuest">Delete user</button>
+      <div class="row" style="gap:8px"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="save">Save user</button></div>
     </div>
   </div>
 </template>
@@ -233,7 +267,7 @@
   function renderList() {
     const el = $('guestList'); el.innerHTML = '';
     $('guestCount').textContent = S.users.length;
-    if (!S.users.length) { el.innerHTML = '<div class="empty">No guests yet.</div>'; return; }
+    if (!S.users.length) { el.innerHTML = '<div class="empty">No users yet.</div>'; return; }
     for (const u of S.users) {
       const row = document.createElement('div'); row.className = 'guest' + (u.id === selId ? ' sel' : '');
       row.appendChild(UL.avatar(u, 'av40'));
@@ -242,6 +276,12 @@
       const tags = document.createElement('div'); tags.className = 'tags';
       const np = (u.pins || []).length, nf = (u.faces || []).length;
       tags.innerHTML = `<span class="tag ${np ? 'ok' : ''}">${np} PIN${np === 1 ? '' : 's'}</span><span class="tag ${nf ? 'ok' : ''}">${nf ? 'Face ID · ' + nf : 'No face'}</span>`;
+      if (u.category) { const c = document.createElement('span'); c.className = 'tag'; c.textContent = u.category; tags.prepend(c); }
+      const st = UL.accessStatus(u).state;
+      if (st !== 'permanent') {
+        const a = document.createElement('span'); a.className = 'tag ' + ({ active: 'ok', upcoming: 'warn', expired: 'bad' })[st];
+        a.textContent = UL.accessLabel(u, Date.now(), true); a.title = UL.accessLabel(u); tags.appendChild(a);
+      }
       m.append(nm, tags); row.appendChild(m);
       row.onclick = () => select(u.id);
       el.appendChild(row);
@@ -249,14 +289,35 @@
   }
   function goHome() {
     if (dirty && !confirm('Discard unsaved changes?')) return;
-    dirty = false; draft = null; selId = null; renderEditor(); renderList();
+    S = UL.load(); dirty = false; draft = null; selId = null; renderEditor(); renderList();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   $('homeLogo').onclick = goHome;
+  $('allUsers').onclick = goHome;
+  function renderOverview(ed) {
+    if (!S.users.length) { ed.innerHTML = '<div class="placeholder">No users yet. Click <b>+ Add user</b> to program PINs and faces.</div>'; return; }
+    const active = S.users.filter(u => UL.accessStatus(u).active).length;
+    ed.innerHTML = `<div class="ov"><div class="ov-h"><b>All users</b><span></span></div><div id="ovList"></div></div>`;
+    ed.querySelector('.ov-h span').textContent = `${S.users.length} total · ${active} can unlock now`;
+    for (const u of S.users) {
+      const r = document.createElement('div'); r.className = 'ov-row'; r.onclick = () => select(u.id);
+      r.appendChild(UL.avatar(u, 'av40'));
+      const m = document.createElement('div');
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = UL.fullName(u);
+      const sub = document.createElement('div'); sub.className = 'sub';
+      sub.textContent = [u.category, UL.accessLabel(u)].filter(Boolean).join(' · ');
+      m.append(nm, sub); r.appendChild(m);
+      const np = (u.pins || []).length, nf = (u.faces || []).length, st = UL.accessStatus(u).state;
+      const t = document.createElement('div'); t.className = 'tags';
+      t.innerHTML = `<span class="tag ${np ? 'ok' : ''}">${np} PIN${np === 1 ? '' : 's'}</span><span class="tag ${nf ? 'ok' : ''}">${nf ? 'Face ID · ' + nf : 'No face'}</span>`
+        + `<span class="tag ${({ permanent: 'ok', active: 'ok', upcoming: 'warn', expired: 'bad' })[st]}">${({ permanent: 'Active', active: 'Active', upcoming: 'Not yet active', expired: 'Expired' })[st]}</span>`;
+      r.appendChild(t); ed.querySelector('#ovList').appendChild(r);
+    }
+  }
   function select(id) {
     if (dirty && !confirm('Discard unsaved changes?')) return;
     selId = id; const u = S.users.find(x => x.id === id);
-    draft = u ? structuredClone(u) : { id: UL.uid(), first: '', last: '', pfp: null, pins: [], faces: [], created: Date.now(), isNew: true };
+    draft = u ? structuredClone(u) : { id: UL.uid(), first: '', last: '', category: '', access: { type: 'permanent' }, pfp: null, pins: [], faces: [], created: Date.now(), isNew: true };
     dirty = false; renderEditor(); renderList();
   }
   $('addGuest').onclick = () => select(null);
@@ -264,14 +325,31 @@
   /* ---------- editor ---------- */
   function renderEditor() {
     const ed = $('editor');
-    if (!draft) { ed.innerHTML = '<div class="placeholder">Select a guest or click <b>+ Add guest</b> to program PINs and faces.</div>'; return; }
+    if (!draft) return renderOverview(ed);
     ed.innerHTML = ''; ed.appendChild($('editorTpl').content.cloneNode(true));
-    $('edTitle').textContent = draft.isNew ? 'New guest' : UL.fullName(draft);
+    $('edTitle').textContent = draft.isNew ? 'New user' : UL.fullName(draft);
     $('first').value = draft.first; $('last').value = draft.last;
     $('delGuest').classList.toggle('hidden', !!draft.isNew);
     paintAvatar(); paintPins(); paintFaces();
 
     for (const k of ['first', 'last']) $(k).oninput = e => { draft[k] = e.target.value; dirty = true; paintAvatar(); };
+    // category: free text, suggestions = common roles + any already used on this lock
+    const cats = [...new Set(['Resident', 'Guest', 'Owner', 'Staff', 'Family', 'Cleaner', ...S.users.map(u => u.category).filter(Boolean)])];
+    $('catList').innerHTML = ''; for (const c of cats) { const o = document.createElement('option'); o.value = c; $('catList').appendChild(o); }
+    $('category').value = draft.category || '';
+    $('category').oninput = e => { draft.category = e.target.value; dirty = true; };
+    paintAccess();
+    for (const r of document.querySelectorAll('input[name=accType]')) r.onchange = () => {
+      if (r.value === 'scheduled' && draft.access?.type !== 'scheduled') {
+        const start = new Date(); start.setMinutes(0, 0, 0);
+        draft.access = { type: 'scheduled', start: +start, end: +start + 24 * 3600e3 };
+      } else if (r.value === 'permanent') draft.access = { type: 'permanent' };
+      dirty = true; paintAccess();
+    };
+    for (const k of ['accStart', 'accEnd']) $(k).onchange = e => {
+      const t = e.target.value ? new Date(e.target.value).getTime() : null;
+      draft.access[k === 'accStart' ? 'start' : 'end'] = t; dirty = true; paintAccess();
+    };
     $('pfpFile').onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
       e.target.value = '';
@@ -338,7 +416,7 @@
     if (!UL.validPin(a)) return showErr(err, 'PIN must be 4 to 8 digits.');
     if (a !== b) return showErr(err, 'PINs don’t match.');
     const h = await UL.hashPin(a);
-    if (draft.pins.some(p => p.hash === h)) return showErr(err, 'This guest already has that PIN.');
+    if (draft.pins.some(p => p.hash === h)) return showErr(err, 'This user already has that PIN.');
     const owner = UL.load().users.find(u => u.id !== draft.id && (u.pins || []).some(p => p.hash === h));
     if (owner) return showErr(err, `That PIN is already assigned to ${UL.fullName(owner)}.`);
     draft.pins.push({ hash: h, len: a.length, added: Date.now(), code: a }); dirty = true;
@@ -375,19 +453,25 @@
   function saveDraft() {
     const first = draft.first.trim(), last = draft.last.trim();
     if (!first || !last) { alert('Enter a first and last name.'); return; }
-    if (!draft.pins.length && !draft.faces.length && !confirm('This guest has no PIN or face and won’t be able to unlock. Save anyway?')) return;
+    const acc = draft.access?.type === 'scheduled' ? draft.access : { type: 'permanent' };
+    if (acc.type === 'scheduled') {
+      if (!acc.start || !acc.end) { showErr($('accErr'), 'Pick both a start and an end date and time.'); $('accErr').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+      if (acc.end <= acc.start) { showErr($('accErr'), 'The end must be after the start.'); $('accErr').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    }
+    draft.access = acc; draft.category = (draft.category || '').trim().slice(0, 24);
+    if (!draft.pins.length && !draft.faces.length && !confirm('This user has no PIN or face and won’t be able to unlock. Save anyway?')) return;
     S = UL.load();
     const rec = { ...draft, first, last }; delete rec.isNew;
     const i = S.users.findIndex(u => u.id === rec.id);
     if (i >= 0) S.users[i] = rec; else S.users.push(rec);
     // re-check PIN uniqueness against latest data
     const others = S.users.filter(u => u.id !== rec.id).flatMap(u => (u.pins || []).map(p => p.hash));
-    if (rec.pins.some(p => others.includes(p.hash))) { alert('One of these PINs is already assigned to another guest.'); return; }
+    if (rec.pins.some(p => others.includes(p.hash))) { alert('One of these PINs is already assigned to another user.'); return; }
     if (!UL.save(S)) return;
     const isNew = i < 0;
     selId = null; draft = null; dirty = false;
     renderEditor(); renderList();
-    toast(`${isNew ? 'Guest added' : 'Changes saved'} · ${UL.fullName(rec)}`);
+    toast(`${isNew ? 'User added' : 'Changes saved'} · ${UL.fullName(rec)}`);
   }
   let toastTimer = 0;
   function toast(msg) {
@@ -400,7 +484,7 @@
   async function openCam(mode = 'face') {
     camMode = mode;
     const pfp = mode === 'pfp';
-    $('camWho').textContent = (draft.first || 'New guest');
+    $('camWho').textContent = (draft.first || 'New user');
     $('camTitle').textContent = pfp ? 'Profile photo' : 'Enroll face';
     $('camShot').textContent = pfp ? 'Take photo' : 'Capture sample';
     $('camClose').textContent = pfp ? 'Cancel' : 'Done';
@@ -433,6 +517,20 @@
     await enrollFrom(c, c.width, c.height, $('camMsg'));
     $('camShot').disabled = draft.faces.length >= MAX_FACES;
   };
+
+  /* ---------- access period ---------- */
+  const toLocalInput = ms => { if (!ms) return ''; const d = new Date(ms); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  function paintAccess() {
+    const a = draft.access?.type === 'scheduled' ? draft.access : { type: 'permanent' };
+    for (const r of document.querySelectorAll('input[name=accType]')) r.checked = r.value === a.type;
+    $('accRange').classList.toggle('hidden', a.type !== 'scheduled');
+    $('accStart').value = toLocalInput(a.start); $('accEnd').value = toLocalInput(a.end);
+    const err = $('accErr');
+    if (a.type !== 'scheduled') return showErr(err, '');
+    if (a.start && a.end && a.end <= a.start) return showErr(err, 'The end must be after the start.');
+    const st = UL.accessStatus(draft).state;
+    showErr(err, st === 'expired' ? 'This period has already ended, so the profile won’t unlock.' : st === 'upcoming' ? `Can unlock from ${UL.fmtWhen(a.start)}.` : a.end ? `Active now, until ${UL.fmtWhen(a.end)}.` : '', st === 'active' || st === 'upcoming');
+  }
 
   /* ---------- profile photo crop ---------- */
   function setPfp(url) { if (url && draft) { draft.pfp = url; dirty = true; paintAvatar(); } }
@@ -496,7 +594,7 @@
   /* ---------- settings, log, status ---------- */
   $('room').value = S.room; $('hdrRoom').textContent = S.room;
   $('room').onchange = e => { const v = e.target.value.trim() || '1208'; S = UL.load(); S.room = v; UL.save(S); $('hdrRoom').textContent = v; e.target.value = v; };
-  $('reset').onclick = () => { if (confirm('Erase every guest, PIN, face and the activity log on this lock?')) { localStorage.removeItem(UL.KEY); S = UL.load(); draft = null; selId = null; dirty = false; $('room').value = S.room; renderEditor(); renderList(); renderLog(); } };
+  $('reset').onclick = () => { if (confirm('Erase every user, PIN, face and the activity log on this lock?')) { localStorage.removeItem(UL.KEY); S = UL.load(); draft = null; selId = null; dirty = false; $('room').value = S.room; renderEditor(); renderList(); renderLog(); } };
   $('clearLog').onclick = () => { S = UL.load(); S.log = []; UL.save(S); renderLog(); };
 
   function renderLog() {

@@ -27,7 +27,25 @@ const UL = (() => {
   }
   const validPin = p => /^\d{4,8}$/.test(p);
   const uid = () => 'g_' + Math.random().toString(36).slice(2, 10);
-  const fullName = u => `${u.first || ''} ${u.last || ''}`.trim() || 'Guest';
+  const fullName = u => `${u.first || ''} ${u.last || ''}`.trim() || 'User';
+
+  /* Access period: { type: 'permanent' } or { type: 'scheduled', start: ms, end: ms }. Missing = permanent. */
+  function accessStatus(u, now = Date.now()) {
+    const a = u.access;
+    if (!a || a.type !== 'scheduled') return { active: true, state: 'permanent' };
+    if (a.start && now < a.start) return { active: false, state: 'upcoming' };
+    if (a.end && now > a.end) return { active: false, state: 'expired' };
+    return { active: true, state: 'active' };
+  }
+  const fmtWhen = ms => new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fmtDay = ms => new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  function accessLabel(u, now = Date.now(), short = false) {
+    const st = accessStatus(u, now).state, a = u.access || {}, f = short ? fmtDay : fmtWhen;
+    if (st === 'permanent') return 'Permanent';
+    if (st === 'upcoming') return `Starts ${f(a.start)}`;
+    if (st === 'expired') return `Expired ${f(a.end)}`;
+    return `Until ${f(a.end)}`;
+  }
   const initials = u => (((u.first || '')[0] || '') + ((u.last || '')[0] || '')).toUpperCase() || '?';
 
   const PALETTE = ['#2f6fed', '#0f9d76', '#c2410c', '#9333ea', '#be185d', '#0e7490', '#4d7c0f', '#b45309'];
@@ -93,6 +111,6 @@ const UL = (() => {
     });
   }
 
-  return { load, save, addLog, hashPin, validPin, uid, fullName, initials, avatar,
+  return { load, save, addLog, hashPin, validPin, uid, fullName, accessStatus, accessLabel, fmtWhen, initials, avatar,
     loadFace, describe, dist, squareCrop, fileToImage, KEY };
 })();

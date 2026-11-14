@@ -236,7 +236,7 @@ def identify(payload: dict) -> tuple[int, dict]:
 
     reason = "ok"
     if chosen is None:
-        reason = "Drex found no matching guest"
+        reason = "Drex found no matching user"
     elif prob < MIN_IDENTITY_PROB:
         reason = f"Drex not confident ({prob:.0%})"
     elif reliable < MIN_RELIABLE_PROB:
@@ -257,6 +257,12 @@ def identify(payload: dict) -> tuple[int, dict]:
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=str(ROOT), **kw)
+
+    def end_headers(self):
+        # make browsers revalidate static files so code updates are picked up on reload
+        if not self.path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
 
     def log_message(self, fmt, *args):
         pass  # keep the console for lock events

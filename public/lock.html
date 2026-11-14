@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Unlockurr Door Lock</title>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
-<script src="shared.js"></script>
+<script src="shared.js?v=4"></script>
 <style>
   :root {
     --wall-1: #d9cdb8; --wall-2: #c4b49a; --carpet: #5b2333;
@@ -230,7 +230,7 @@
         <div class="face-ring idle" id="ring">
           <video id="video" playsinline muted autoplay></video>
           <div class="cam-off" id="camOff">Camera unavailable</div>
-          <div class="deny-banner" id="denyBanner" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Face not recognized</div>
+          <div class="deny-banner" id="denyBanner" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span id="denyText">Face not recognized</span></div>
           <svg viewBox="0 0 108 81" preserveAspectRatio="none"><rect class="ring-track" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-scan" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-prog" id="prog" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/></svg>
         </div>
         <div class="msg" id="faceMsg">Starting Face ID…</div>
@@ -250,7 +250,7 @@
       <div class="welcome" id="welcome">
         <div class="w-avatar" id="wAvatar"><span class="burst"></span><span class="burst b2"></span></div>
         <div class="w-hello">Welcome</div>
-        <div class="w-name" id="wName">Guest</div>
+        <div class="w-name" id="wName">User</div>
         <div class="w-sub" id="wSub"></div>
         <div class="bolt"><i></i></div>
       </div>
@@ -359,6 +359,12 @@
     const user = S.users.find(u => (u.pins || []).some(p => p.hash === h));
     pin = '';
     busy = false;
+    if (user && !UL.accessStatus(user).active) {
+      // right PIN, but outside the user's access period: deny without counting it as a wrong PIN
+      fails = 0; UL.addLog({ kind: 'deny', method: 'PIN', userId: user.id, name: UL.fullName(user), detail: accessDenyText(user) });
+      led('red'); setTimeout(() => led(''), 900); renderDots(true); setTimeout(() => renderDots(), 600);
+      return setPinMsg(accessDenyText(user), true);
+    }
     if (user) { fails = 0; renderDots(); return unlock(user, 'PIN'); }
     fails++;
     UL.addLog({ kind: 'deny', method: 'PIN', detail: 'Incorrect PIN' });
@@ -395,6 +401,10 @@
   $('welcome').addEventListener('click', relock);
 
   /* ---------- Face ID ---------- */
+  function accessDenyText(u) {
+    const st = UL.accessStatus(u).state, a = u.access || {};
+    return st === 'upcoming' ? `Access starts ${UL.fmtWhen(a.start)}` : st === 'expired' ? 'Access expired' : 'Access not active';
+  }
   function enrolled() { return S.users.filter(u => (u.faces || []).length); }
   function idleMsg() {
     if (!camOk) return setFaceMsg('Camera unavailable', 'Use the keypad to unlock', true);
@@ -453,6 +463,15 @@
 
     if (res.ok && res.unlock) {
       const user = S.users.find(u => u.id === res.user_id);
+      if (user && !UL.accessStatus(user).active) {
+        led('red'); setTimeout(() => led(''), 1200);
+        $('denyText').textContent = accessDenyText(user);
+        setRing('denied'); $('ring').classList.add('unrecognized');
+        setTimeout(() => { if (!unlocked && Date.now() >= cooldownUntil - 50) setRing('idle'); }, DENY_MS);
+        setFaceMsg(`Hi ${user.first || UL.fullName(user)}`, accessDenyText(user), true);
+        UL.addLog({ kind: 'deny', method: 'Face ID', userId: user.id, name: UL.fullName(user), detail: accessDenyText(user) });
+        cooldownUntil = Date.now() + DENY_MS; return;
+      }
       if (user) return unlock(user, 'Face ID', `Drex p=${res.probability} · ${res.request_id}`);
     }
     led('red'); setTimeout(() => led(''), 1200);
@@ -462,6 +481,7 @@
       UL.addLog({ kind: 'deny', method: 'Face ID', detail: `Drex unavailable: ${res.message || res.error}` });
       cooldownUntil = Date.now() + 8000; checkDrex();
     } else {
+      $('denyText').textContent = 'Face not recognized';
       setRing('denied'); $('ring').classList.add('unrecognized');
       setTimeout(() => { if (!unlocked && Date.now() >= cooldownUntil - 50) setRing('idle'); }, DENY_MS);
       setFaceMsg('Face not recognized', 'Try again or use keypad', true);
