@@ -87,6 +87,11 @@
   .crop-stage .mask { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgba(0,0,0,.55); outline: 2px solid rgba(255,255,255,.85); outline-offset: -2px; pointer-events: none; }
   .crop-zoom { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
   .crop-zoom input { flex: 1; accent-color: var(--accent); }
+  .toast { position: fixed; left: 50%; bottom: 24px; z-index: 50; display: flex; align-items: center; gap: 10px; padding: 11px 16px 11px 12px;
+    border-radius: 12px; background: var(--text); color: var(--bg); font-size: 14px; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    transform: translate(-50%, 20px); opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast i { width: 22px; height: 22px; border-radius: 50%; background: var(--ok); display: grid; place-items: center; flex: none; }
   .dlg-f { display: flex; justify-content: space-between; gap: 8px; padding: 0 18px 16px; }
   .hidden { display: none !important; }
 </style>
@@ -124,6 +129,8 @@
     </section>
   </div>
 </main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><i><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i><span id="toastMsg"></span></div>
 
 <dialog id="camDlg">
   <div class="dlg-h"><span id="camTitle">Enroll face</span> · <span id="camWho"></span></div>
@@ -331,8 +338,15 @@
     const others = S.users.filter(u => u.id !== rec.id).flatMap(u => (u.pins || []).map(p => p.hash));
     if (rec.pins.some(p => others.includes(p.hash))) { alert('One of these PINs is already assigned to another guest.'); return; }
     if (!UL.save(S)) return;
-    selId = rec.id; draft = structuredClone(rec); dirty = false;
+    const isNew = i < 0;
+    selId = null; draft = null; dirty = false;
     renderEditor(); renderList();
+    toast(`${isNew ? 'Guest added' : 'Changes saved'} · ${UL.fullName(rec)}`);
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    $('toastMsg').textContent = msg; const t = $('toast');
+    t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
   /* ---------- camera enrollment ---------- */
