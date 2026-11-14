@@ -120,7 +120,7 @@
 </main>
 
 <dialog id="camDlg">
-  <div class="dlg-h">Enroll face · <span id="camWho"></span></div>
+  <div class="dlg-h"><span id="camTitle">Enroll face</span> · <span id="camWho"></span></div>
   <div class="dlg-b">
     <div class="cam"><video id="camVideo" playsinline muted autoplay></video><div class="guide"></div></div>
     <div class="err" id="camMsg" style="color:var(--muted)">Center the face in the oval with good lighting. Capture 3–5 samples from slightly different angles.</div>
@@ -137,6 +137,7 @@
         <div style="display:grid;gap:8px">
           <div class="row" style="gap:8px">
             <label class="btn sm">Upload photo<input type="file" accept="image/*" id="pfpFile" hidden></label>
+            <button class="btn sm" id="pfpCam">Take photo</button>
             <button class="btn sm danger" id="pfpRemove">Remove</button>
           </div>
           <span class="hint" style="color:var(--muted);font-size:12px">Shown on the lock's welcome screen. Without one, initials are used.</span>
@@ -228,13 +229,14 @@
       catch { alert('Could not read that image.'); }
       e.target.value = '';
     };
+    $('pfpCam').onclick = () => openCam('pfp');
     $('pfpRemove').onclick = () => { draft.pfp = null; dirty = true; paintAvatar(); };
     $('pinAdd').onclick = addPin;
     for (const k of ['pinIn', 'pinIn2']) {
       $(k).oninput = e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8); $('pinErr').textContent = ''; };
       $(k).onkeydown = e => { if (e.key === 'Enter') addPin(); };
     }
-    $('faceCam').onclick = openCam;
+    $('faceCam').onclick = () => openCam('face');
     $('faceFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) { const img = await UL.fileToImage(f).catch(() => null); if (img) enrollFrom(img, img.naturalWidth, img.naturalHeight, $('faceErr')); } };
     $('faceFromPfp').onclick = async () => {
       if (!draft.pfp) return showErr($('faceErr'), 'Upload a profile photo first.');
@@ -318,22 +320,36 @@
   }
 
   /* ---------- camera enrollment ---------- */
-  let camStream = null;
-  async function openCam() {
+  let camStream = null, camMode = 'face';
+  async function openCam(mode = 'face') {
+    camMode = mode;
+    const pfp = mode === 'pfp';
     $('camWho').textContent = (draft.first || 'New guest');
-    $('camMsg').textContent = 'Center the face in the oval with good lighting. Capture 3–5 samples from slightly different angles.';
+    $('camTitle').textContent = pfp ? 'Profile photo' : 'Enroll face';
+    $('camShot').textContent = pfp ? 'Take photo' : 'Capture sample';
+    $('camClose').textContent = pfp ? 'Cancel' : 'Done';
+    $('camShot').disabled = !pfp && draft.faces.length >= MAX_FACES;
+    $('camMsg').textContent = pfp ? 'Center your face in the oval, then take the photo.'
+      : 'Center the face in the oval with good lighting. Capture 3–5 samples from slightly different angles.';
     $('camDlg').showModal();
     try {
       camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
       $('camVideo').srcObject = camStream; await $('camVideo').play();
     } catch { $('camMsg').textContent = 'Camera unavailable — allow camera access or upload a photo instead.'; }
-    UL.loadFace().catch(() => {});
+    if (!pfp) UL.loadFace().catch(() => {});
   }
   function closeCam() { camStream?.getTracks().forEach(t => t.stop()); camStream = null; if ($('camDlg').open) $('camDlg').close(); }
   $('camClose').onclick = closeCam;
   $('camDlg').addEventListener('close', closeCam);
   $('camShot').onclick = async () => {
     const v = $('camVideo'); if (!camStream || v.readyState < 2) return;
+    if (camMode === 'pfp') {
+      // mirror the frame so the photo matches the (mirrored) preview, then crop the centre square
+      const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+      const g = c.getContext('2d'); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(v, 0, 0);
+      draft.pfp = UL.squareCrop(c, c.width, c.height, null, 256); dirty = true; paintAvatar();
+      return closeCam();
+    }
     $('camShot').disabled = true;
     // snapshot the frame so thumbnail and descriptor come from the same image
     const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
