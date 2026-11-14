@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Unlockurr Door Lock</title>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
-<script src="shared.js?v=4"></script>
+<script>window.tf = faceapi.tf;</script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="shared.js?v=5"></script>
 <style>
   :root {
     --brass: #c9a24a; --brass-dk: #8a6a22;
@@ -190,6 +192,13 @@
   .face-ring .deny-banner svg { position: static; inset: auto; width: 2.6em; height: 2.6em; padding: .45em; border-radius: 50%; background: var(--bad); }
   .face-ring.unrecognized .deny-banner { opacity: 1; transform: none; }
   .face-ring.unrecognized .ring-scan { stroke: var(--bad); animation-play-state: paused; }
+  .challenge { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .face-ring.challenge .challenge { opacity: 1; }
+  .face-ring.challenge .ring-scan { stroke: #b48bff; }
+  .challenge svg { width: 34%; height: auto; filter: drop-shadow(0 .2em .4em rgba(0,0,0,.6)); animation: nudgeL 1s ease-in-out infinite; }
+  .challenge.r svg { transform: scaleX(-1); animation-name: nudgeR; }
+  @keyframes nudgeL { 50% { transform: translateX(-18%); } }
+  @keyframes nudgeR { 0%, 100% { transform: scaleX(-1); } 50% { transform: scaleX(-1) translateX(-18%); } }
   .msg { min-height: 2.6em; text-align: center; font-size: 1em; line-height: 1.3; }
   .msg small { display: block; color: var(--muted); font-size: .78em; margin-top: .25em; }
   .msg.bad { color: var(--bad); }
@@ -328,6 +337,7 @@
                 <video id="video" playsinline muted autoplay></video>
                 <div class="cam-off" id="camOff">Camera unavailable</div>
                 <div class="deny-banner" id="denyBanner" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span id="denyText">Face not recognized</span></div>
+          <div class="challenge" id="challenge"><svg viewBox="0 0 48 32" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M44 16H6M18 4 6 16l12 12"/></svg></div>
                 <svg viewBox="0 0 108 81" preserveAspectRatio="none"><rect class="ring-track" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-scan" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-prog" id="prog" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/></svg>
               </div>
               <div class="msg" id="faceMsg">Starting Face ID…</div>
@@ -490,7 +500,7 @@
     const m = $('faceMsg'); m.className = 'msg' + (bad ? ' bad' : '');
     m.innerHTML = ''; m.append(text); if (sub) { const s = document.createElement('small'); s.textContent = sub; m.append(s); }
   }
-  function setRing(state) { const r = $('ring'); r.classList.remove('idle', 'verifying', 'denied', 'unrecognized'); if (state) r.classList.add(state); if (!camOk) r.classList.add('nocam'); }
+  function setRing(state) { const r = $('ring'); r.classList.remove('idle', 'verifying', 'denied', 'unrecognized', 'challenge'); if (state) r.classList.add(state); if (!camOk) r.classList.add('nocam'); }
   function setProgress(f) { $('prog').style.strokeDasharray = `${(f * 314).toFixed(1)} 314`; }
 
   /* ---------- keypad ---------- */
@@ -751,7 +761,7 @@
           if (!enrolled().length) { frames = []; setProgress(0); faceNotRecognized('No enrolled faces'); }
           else if (blocked) { frames = []; setProgress(0); denyAccess(blocked); }
           else {
-            frames.push({ d: r.d, score: r.score, w: r.box.width / v.videoWidth });
+            frames.push({ d: r.d, score: r.score, w: r.box.width / v.videoWidth, lm: r.lm });
             if (frames.length > FRAMES_NEEDED) frames.shift();
             setRing(null); setProgress(frames.length / FRAMES_NEEDED);
             setFaceMsg('Hold still…', 'Scanning face');
@@ -764,6 +774,73 @@
       } else if (awake && mode === 'face' && !unlocked && !busy && Date.now() > cooldownUntil) { setRing('idle'); idleMsg(); }
     } catch (e) { console.error(e); }
     setTimeout(scanLoop, frames.length ? SCAN_ACTIVE_MS : SCAN_IDLE_MS);
+  }
+
+  /* ---------- anti-spoofing: phone / photo detector + liveness head-turn challenge ----------
+     Face ID only unlocks when ALL pass (any error fails closed):
+       1. no phone in the frame, and no screen/photo (tv, laptop, book) covering the face   (COCO-SSD object detector)
+       2. the person turns their head the way the lock asks (random left/right). A real head changes shape as it
+          turns (nose moves relative to the eyes); a flat photo or screen tilted the same way keeps its proportions.
+       3. the face doing the challenge is the same face that was identified
+       4. Drex identifies an enrolled user with active access                                                     */
+  // shown on the lock for a phone, screen or photo; the specific reason only goes to the activity log
+  const UNUSUAL = 'Unusual Activity Detected', UNUSUAL_SUB = 'Use the keypad to unlock';
+  const PHONE_MIN_SCORE = 0.5, SCREEN_CLASSES = ['tv', 'laptop', 'book'];
+  const CHALLENGE_MS = 4500, YAW_DELTA = 0.12, FACE_LOST_MS = 1200, SAME_FACE_DIST = 0.5;
+  let phoneModel = null;
+  function loadPhoneModel() {
+    if (!phoneModel) { phoneModel = cocoSsd.load({ base: 'lite_mobilenet_v2' }); phoneModel.catch(() => { phoneModel = null; }); }
+    return phoneModel;
+  }
+  async function detectSpoofObject(faceBox) {
+    const v = $('video'), m = await loadPhoneModel();
+    const preds = await m.detect(v, 10, 0.3);
+    const fc = faceBox && { x: faceBox.x + faceBox.width / 2, y: faceBox.y + faceBox.height / 2 };
+    for (const p of preds.sort((a, b) => b.score - a.score)) {
+      if (p.score < PHONE_MIN_SCORE) continue;
+      if (p.class === 'cell phone') return { what: 'Phone', cls: p.class, score: p.score };
+      const [x, y, w, h] = p.bbox;
+      if (SCREEN_CLASSES.includes(p.class) && fc && fc.x >= x && fc.x <= x + w && fc.y >= y && fc.y <= y + h)
+        return { what: p.class === 'book' ? 'Photo' : 'Screen', cls: p.class, score: p.score };
+    }
+    return null;
+  }
+  // head yaw from landmarks: nose tip offset from the eye midpoint, in inter-ocular distances (raw camera coords)
+  function yawOf(lm) { const a = lm[36], b = lm[45], n = lm[30]; return (n[0] - (a[0] + b[0]) / 2) / Math.hypot(b[0] - a[0], b[1] - a[1]); }
+  const median = xs => { const t = [...xs].sort((a, b) => a - b); return t[t.length >> 1]; };
+  async function livenessChallenge(fs, shouldStop) {
+    // raw camera image: turning to YOUR left moves the nose toward image-right (+). The screen is mirrored, so ← = your left.
+    const dir = Math.random() < .5 ? 1 : -1;
+    const base = median(fs.map(f => yawOf(f.lm)));
+    const ch = $('challenge'); ch.classList.toggle('r', dir < 0);
+    setRing('challenge'); setProgress(0);
+    setFaceMsg(`Turn your head slightly ${dir > 0 ? 'left' : 'right'}`, 'Liveness check');
+    const t0 = Date.now(); let hits = 0, peak = 0, seen = Date.now();
+    while (Date.now() - t0 < CHALLENGE_MS) {
+      if (shouldStop()) return { passed: false, stopped: true };
+      const r = await UL.landmarks($('video'), DETECT_SIZE);
+      if (!r) { if (Date.now() - seen > FACE_LOST_MS) return { passed: false, reason: 'face left the camera' }; continue; }
+      seen = Date.now();
+      const turned = (yawOf(r.lm) - base) * dir; peak = Math.max(peak, turned);
+      setProgress(Math.max(0, Math.min(1, turned / YAW_DELTA)));
+      if ((hits = turned >= YAW_DELTA ? hits + 1 : 0) >= 2) {
+        // the face that turned must be the face that was identified (no swapping a photo for a real head)
+        const full = await UL.describe($('video'), DETECT_SIZE);
+        if (!full) return { passed: false, reason: 'face left the camera' };
+        const same = Math.min(...fs.map(f => UL.dist(full.d, f.d)));
+        return same <= SAME_FACE_DIST ? { passed: true, peak, box: full.box } : { passed: false, reason: 'a different face did the head turn' };
+      }
+    }
+    return { passed: false, reason: peak < -YAW_DELTA ? 'turned the wrong way' : 'no head turn' };
+  }
+  function spoofDenied(title, sub, detail) {
+    led('red'); setTimeout(() => led(''), 1200);
+    $('denyText').textContent = title;
+    setRing('denied'); $('ring').classList.add('unrecognized');
+    setTimeout(() => { if (!unlocked && Date.now() >= cooldownUntil - 50) setRing('idle'); }, DENY_MS);
+    setFaceMsg(title, sub, true);
+    UL.addLog({ kind: 'deny', method: 'Face ID', detail });
+    cooldownUntil = Date.now() + DENY_MS;
   }
 
   async function verify(fs) {
@@ -779,17 +856,32 @@
     const body = { room: S.room, candidates: cands, capture: {
       frames: fs.length, detection: scores.reduce((a, b) => a + b, 0) / scores.length,
       min_detection: Math.min(...scores), face_width: fs.reduce((a, f) => a + f.w, 0) / fs.length } };
-    let res;
-    try {
-      const r = await fetch('/api/identify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      res = await r.json();
-    } catch { res = { ok: false, error: 'drex_unavailable', message: 'Lock server unreachable' }; }
+
+    // Drex identity check and the phone/photo check run while the person does the head-turn challenge
+    let res = null;
+    const drexP = fetch('/api/identify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => r.json()).catch(() => ({ ok: false, error: 'drex_unavailable', message: 'Lock server unreachable' }))
+      .then(r => (res = r));
+    const spoofP = detectSpoofObject(null).catch(e => ({ error: String(e && e.message || e) }));
+    const spoof1 = await spoofP;
+    if (spoof1 && !spoof1.error) { busy = false; setProgress(0); return spoofDenied(UNUSUAL, UNUSUAL_SUB, `${spoof1.what} detected (${spoof1.cls} ${spoof1.score.toFixed(2)})`); }
+    const live = await livenessChallenge(fs, () => res && !(res.ok && res.unlock));
+    await drexP;
+    // second look at the end of the challenge, around the face that turned
+    const spoof2 = live.passed ? await detectSpoofObject(live.box).catch(e => ({ error: String(e && e.message || e) })) : null;
     busy = false; setProgress(0);
+
+    const spoof = (spoof1 && spoof1.error) || (spoof2 && spoof2.error) ? { error: (spoof1 && spoof1.error) || spoof2.error } : spoof2;
+    if (spoof && spoof.error) {
+      return spoofDenied('Face ID unavailable', 'Spoof check failed to load · use keypad', `Phone/photo detector unavailable: ${spoof.error}`);
+    }
+    if (spoof) return spoofDenied(UNUSUAL, UNUSUAL_SUB, `${spoof.what} detected (${spoof.cls} ${spoof.score.toFixed(2)})`);
 
     if (res.ok && res.unlock) {
       const user = S.users.find(u => u.id === res.user_id);
       if (user && !UL.accessStatus(user).active) return denyAccess(user);
-      if (user) return unlock(user, 'Face ID', `Drex p=${res.probability} · ${res.request_id}`);
+      if (user && !live.passed) return spoofDenied('Liveness check failed', live.reason === 'turned the wrong way' ? 'Turned the wrong way · try again' : 'Follow the arrow · try again', `Liveness failed: ${live.reason} · ${res.request_id}`);
+      if (user) return unlock(user, 'Face ID', `Drex p=${res.probability} · live · ${res.request_id}`);
     }
     led('red'); setTimeout(() => led(''), 1200);
     if (!res.ok) {
@@ -802,11 +894,13 @@
     }
   }
 
+
   (async () => {
     await startCamera();
     if (!camOk) { idleMsg(); return; }
     setFaceMsg('Loading Face ID…', 'Preparing face models');
     try { await UL.loadFace(); } catch (e) { console.error(e); setFaceMsg('Face models failed to load', 'Use the keypad', true); return; }
+    loadPhoneModel().catch(e => console.warn('phone detector', e));
     idleMsg(); scanLoop();
   })();
 })();
