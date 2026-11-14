@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Unlockurr Door Lock</title>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<script src="shared.js"></script>
+<style>
+  :root {
+    --wall-1: #d9cdb8; --wall-2: #c4b49a; --carpet: #5b2333;
+    --wood-1: #6b3f22; --wood-2: #4a2a15; --wood-3: #82502d;
+    --brass: #c9a24a; --brass-dk: #8a6a22;
+    --metal-1: #e9ebee; --metal-2: #b9bec6; --metal-3: #8e949d;
+    --screen: #06090f; --ink: #e8eef8; --muted: #8a96a8;
+    --accent: #4f8cff; --ok: #2fd07f; --bad: #ff5468; --navy: #10265f;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background:
+      repeating-linear-gradient(90deg, transparent 0 46px, rgba(0,0,0,.025) 46px 48px),
+      linear-gradient(180deg, var(--wall-1), var(--wall-2) 82%, #3d1621 82%, var(--carpet) 84%, #431823);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    display: grid; place-items: center; overflow: hidden; color: var(--ink);
+    user-select: none;
+  }
+  .mgr-link {
+    position: fixed; top: 14px; right: 16px; z-index: 5; font-size: 13px; color: #3a2c1a;
+    background: rgba(255,255,255,.55); padding: 7px 12px; border-radius: 999px; text-decoration: none;
+    backdrop-filter: blur(6px); border: 1px solid rgba(0,0,0,.08);
+  }
+  .mgr-link:hover { background: rgba(255,255,255,.8); }
+
+  /* ---------- door ---------- */
+  .frame {
+    padding: 1.6vh 1.6vh 0; background: linear-gradient(90deg, #f1ece3, #ddd5c7 50%, #f1ece3);
+    border-radius: 4px 4px 0 0; box-shadow: 0 0 0 1px rgba(0,0,0,.12), 0 30px 60px rgba(0,0,0,.18);
+    margin-top: 2vh;
+  }
+  .door {
+    position: relative; height: min(92vh, calc(94vw * 2.05)); aspect-ratio: 0.48;
+    container-type: inline-size;
+    background:
+      repeating-linear-gradient(92deg, rgba(255,255,255,.025) 0 3px, transparent 3px 9px, rgba(0,0,0,.05) 9px 11px),
+      linear-gradient(90deg, var(--wood-2), var(--wood-1) 18%, var(--wood-3) 50%, var(--wood-1) 82%, var(--wood-2));
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.25), inset -10px 0 24px rgba(0,0,0,.25);
+    transform-origin: left center; transition: transform 1.1s cubic-bezier(.3,.7,.2,1);
+  }
+  .door.ajar { transform: perspective(1400px) rotateY(-9deg); }
+  .panel { position: absolute; left: 11%; right: 11%; border-radius: 3px;
+    box-shadow: inset 3px 3px 6px rgba(0,0,0,.45), inset -2px -2px 4px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.06); }
+  .panel.p1 { top: 6%; height: 36%; } .panel.p2 { top: 50%; height: 44%; }
+  .peephole { position: absolute; top: 25%; left: 50%; width: 3.4cqw; aspect-ratio: 1; transform: translate(-50%,-50%);
+    border-radius: 50%; background: radial-gradient(circle at 40% 40%, #555 0 25%, #111 40%, var(--brass) 45%, var(--brass-dk) 80%);
+    box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .plaque {
+    position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+    padding: 2.2cqw 6cqw; border-radius: 1.5cqw;
+    background: linear-gradient(160deg, #e7c873, var(--brass) 40%, var(--brass-dk));
+    box-shadow: 0 3px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.5);
+    font: 700 9cqw/1 Georgia, "Times New Roman", serif; color: #3b2a07; letter-spacing: .08em;
+    text-shadow: 0 1px 0 rgba(255,255,255,.35);
+  }
+  .plaque small { display: block; font: 600 2.4cqw/1 -apple-system, sans-serif; letter-spacing: .3em; text-align: center; margin-bottom: 1cqw; opacity: .75; }
+  .kick { position: absolute; left: 0; right: 0; bottom: 0; height: 5%;
+    background: linear-gradient(180deg, #d7b35e, var(--brass-dk)); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+
+  /* ---------- lock unit ---------- */
+  .lock {
+    position: absolute; right: 5%; top: 33%; width: 58cqw; font-size: 2.6cqw;
+    padding: 1.1em 1em 1.3em; border-radius: 2.4em 2.4em 1.6em 1.6em;
+    background: linear-gradient(100deg, var(--metal-3), var(--metal-1) 22%, var(--metal-2) 55%, var(--metal-1) 80%, var(--metal-3));
+    box-shadow: 0 1.2em 2.4em rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 3px rgba(0,0,0,.25);
+    display: flex; flex-direction: column; align-items: center; gap: .9em;
+  }
+  .lock-head { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 .4em; }
+  .brand-oval {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: .38em 1.25em .42em; border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 30%, #2a4fb0, var(--navy) 70%);
+    color: #eef2ff; font: italic 700 1.15em/1 Georgia, "Times New Roman", serif; letter-spacing: .02em;
+    box-shadow: inset 0 0 0 .12em var(--navy), inset 0 0 0 .22em #d7def5, 0 .1em .25em rgba(0,0,0,.4);
+    text-shadow: 0 1px 1px rgba(0,0,0,.4);
+  }
+  .sensor { display: flex; align-items: center; gap: .55em; }
+  .lens { width: 1.5em; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, #6b7fae 0 8%, #12182a 22%, #000 60%, #333 62%, #111 100%);
+    box-shadow: 0 0 0 .18em #2b2f36, 0 0 0 .28em #9aa1ab; }
+  .led { width: .55em; aspect-ratio: 1; border-radius: 50%; background: #5a1f25; box-shadow: inset 0 0 2px #000; transition: .3s; }
+  .led.on-red { background: var(--bad); box-shadow: 0 0 .6em var(--bad); }
+  .led.on-green { background: var(--ok); box-shadow: 0 0 .8em var(--ok); }
+  .led.on-blue { background: var(--accent); box-shadow: 0 0 .6em var(--accent); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .bezel { width: 100%; padding: .45em; border-radius: 1.4em; background: #15181d;
+    box-shadow: inset 0 0 0 1px #000, inset 0 2px 4px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.6); }
+  .screen {
+    position: relative; overflow: hidden; border-radius: 1em; aspect-ratio: 0.66;
+    background: radial-gradient(120% 80% at 50% 0%, #142038, var(--screen) 70%);
+    display: flex; flex-direction: column;
+  }
+  .screen::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,.07), transparent 40%); }
+  .status { display: flex; justify-content: space-between; align-items: center; padding: .8em 1em .2em; font-size: .85em; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: .35em; padding: .2em .6em; border-radius: 99em; background: rgba(255,255,255,.06); }
+  .chip i { width: .5em; height: .5em; border-radius: 50%; background: var(--muted); }
+  .chip.ok i { background: var(--ok); } .chip.bad i { background: var(--bad); }
+
+  .view { position: absolute; inset: 2.2em 0 0; display: flex; flex-direction: column; align-items: center; padding: .6em 1em 1em; transition: opacity .3s, transform .3s; }
+  .view.hidden { opacity: 0; pointer-events: none; transform: scale(.97); }
+
+  /* face view */
+  .room-big { font-size: .85em; letter-spacing: .25em; color: var(--muted); margin-top: .2em; }
+  .face-ring { position: relative; width: 72%; aspect-ratio: 1; margin: 1.1em 0 .9em; }
+  .face-ring video { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transform: scaleX(-1); background: #0b111c; display: block; }
+  .face-ring svg { position: absolute; inset: -7%; width: 114%; height: 114%; }
+  .ring-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 3; }
+  .ring-scan { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 60 254; transform-origin: 50% 50%; animation: spin 1.6s linear infinite; }
+  .ring-prog { fill: none; stroke: var(--ok); stroke-width: 3.4; stroke-linecap: round; stroke-dasharray: 0 314; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dasharray .35s; }
+  .face-ring.idle .ring-scan { stroke: rgba(255,255,255,.18); }
+  .face-ring.verifying .ring-scan { stroke: #b48bff; animation-duration: .7s; }
+  .face-ring.denied { animation: shake .45s; }
+  .face-ring.denied .ring-scan { stroke: var(--bad); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .cam-off { position: absolute; inset: 0; display: none; place-items: center; text-align: center; border-radius: 50%; background: #0b111c; color: var(--muted); font-size: .85em; padding: 1.2em; }
+  .face-ring.nocam .cam-off { display: grid; }
+  .msg { min-height: 2.6em; text-align: center; font-size: 1em; line-height: 1.3; }
+  .msg small { display: block; color: var(--muted); font-size: .78em; margin-top: .25em; }
+  .msg.bad { color: var(--bad); }
+  .switch { margin-top: auto; border: 0; color: var(--ink); background: rgba(255,255,255,.08); padding: .75em 1.4em; border-radius: 99em; font: inherit; font-size: .9em; cursor: pointer; display: inline-flex; gap: .5em; align-items: center; }
+  .switch:active { background: rgba(255,255,255,.16); transform: scale(.97); }
+  .switch svg { width: 1.1em; height: 1.1em; }
+
+  /* pin view */
+  .pin-title { font-size: .95em; margin-top: .4em; }
+  .dots { display: flex; gap: .55em; margin: .9em 0 .3em; height: 1em; align-items: center; }
+  .dot { width: .75em; height: .75em; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.35); transition: .15s; }
+  .dot.f { background: var(--ink); border-color: var(--ink); transform: scale(1.1); }
+  .dot.opt { border-style: dashed; opacity: .45; }
+  .dots.bad { animation: shake .45s; } .dots.bad .dot { border-color: var(--bad); background: var(--bad); }
+  .pin-msg { font-size: .78em; color: var(--muted); min-height: 1.3em; text-align: center; }
+  .pin-msg.bad { color: var(--bad); }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45em; width: 90%; margin-top: .3em; }
+  .key { aspect-ratio: 1.5; border: 0; border-radius: 1em; font: 500 1.55em/1 inherit; font-family: inherit; color: var(--ink); cursor: pointer;
+    background: linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.05)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); transition: transform .08s, background .08s; }
+  .key:active, .key.press { background: rgba(79,140,255,.45); transform: scale(.94); }
+  .key.fn { font-size: 1.1em; color: var(--muted); }
+  .key.go { background: linear-gradient(180deg, #3d7bff, #2a5fd8); color: #fff; }
+  .key.go:disabled { opacity: .35; }
+  .key svg { width: 1.1em; height: 1.1em; }
+  .pin-view .switch { margin-top: .8em; }
+
+  /* welcome overlay */
+  .welcome { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6em;
+    background: radial-gradient(110% 70% at 50% 35%, #0f4a37, #04140e 75%); opacity: 0; pointer-events: none; transition: opacity .4s; text-align: center; padding: 1em; }
+  .welcome.show { opacity: 1; pointer-events: auto; }
+  .w-avatar { position: relative; width: 46%; aspect-ratio: 1; }
+  .w-avatar .avatar { width: 100%; height: 100%; font-size: 3.4em; box-shadow: 0 0 0 .22em rgba(47,208,127,.9), 0 0 2em rgba(47,208,127,.5); transform: scale(.3); opacity: 0; }
+  .welcome.show .w-avatar .avatar { animation: pop .7s .25s cubic-bezier(.2,1.4,.4,1) forwards; }
+  .burst { position: absolute; inset: -18%; border-radius: 50%; border: .15em solid var(--ok); opacity: 0; }
+  .welcome.show .burst { animation: burst 1.1s .45s ease-out; }
+  .welcome.show .burst.b2 { animation-delay: .7s; }
+  .w-check { position: absolute; right: -2%; bottom: -2%; width: 30%; aspect-ratio: 1; border-radius: 50%; background: var(--ok); display: grid; place-items: center; box-shadow: 0 0 0 .2em #04140e; transform: scale(0); }
+  .w-check svg { width: 60%; } .w-check path { stroke-dasharray: 30; stroke-dashoffset: 30; }
+  .welcome.show .w-check { animation: pop .45s .8s cubic-bezier(.2,1.6,.4,1) forwards; }
+  .welcome.show .w-check path { animation: draw .4s 1.05s forwards; }
+  .w-hello { font-size: .95em; letter-spacing: .3em; text-transform: uppercase; color: #8ff0bf; opacity: 0; margin-top: .8em; }
+  .w-name { font: 600 1.7em/1.15 Georgia, "Times New Roman", serif; opacity: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .w-sub { font-size: .78em; color: #9cc9b4; opacity: 0; }
+  .welcome.show .w-hello { animation: rise .5s .9s forwards; }
+  .welcome.show .w-name { animation: rise .55s 1.05s forwards; }
+  .welcome.show .w-sub { animation: rise .5s 1.3s forwards; }
+  .bolt { position: absolute; bottom: 1.2em; left: 50%; transform: translateX(-50%); width: 5.4em; height: .5em; border-radius: 1em; background: rgba(255,255,255,.12); overflow: hidden; }
+  .bolt i { position: absolute; inset: 0; background: var(--ok); border-radius: 1em; transform: translateX(0); }
+  .welcome.show .bolt i { animation: retract .8s .4s cubic-bezier(.6,0,.2,1) forwards; }
+  @keyframes pop { to { transform: scale(1); opacity: 1; } }
+  @keyframes burst { from { opacity: .9; transform: scale(.75); } to { opacity: 0; transform: scale(1.35); } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(.6em); } to { opacity: 1; transform: none; } }
+  @keyframes retract { to { transform: translateX(-100%); } }
+  @keyframes shake { 20%, 60% { transform: translateX(-.4em); } 40%, 80% { transform: translateX(.4em); } }
+
+  .avatar { border-radius: 50%; display: grid; place-items: center; overflow: hidden; color: #fff; font-weight: 600; letter-spacing: .02em; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* lever handle */
+  .lever-wrap { position: relative; width: 100%; height: 3.6em; margin-top: .2em; }
+  .lever-rose { position: absolute; left: 50%; top: 50%; width: 3.6em; height: 3.6em; transform: translate(-50%, -50%); border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--metal-2) 55%, var(--metal-3)); box-shadow: 0 .3em .6em rgba(0,0,0,.45); }
+  .lever { position: absolute; left: 50%; top: 50%; width: 15em; height: 1.5em; margin-top: -.75em; margin-left: -1.1em;
+    border-radius: .75em 1em 1em .75em; transform-origin: 1.1em 50%; transition: transform .6s cubic-bezier(.4,1.6,.5,1);
+    background: linear-gradient(180deg, #fff, var(--metal-2) 45%, var(--metal-3)); box-shadow: 0 .4em .8em rgba(0,0,0,.45); }
+  .lever.down { transform: rotate(32deg); }
+  .card-slot { width: 40%; height: .35em; border-radius: .2em; background: #23262c; box-shadow: inset 0 1px 2px #000, 0 1px 0 rgba(255,255,255,.7); }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<a class="mgr-link" href="manager.html" target="unlockurr-manager">Open Lock Manager ↗</a>
+
+<div class="frame">
+<div class="door" id="door">
+  <div class="panel p1"></div><div class="panel p2"></div>
+  <div class="plaque"><small>ROOM</small><span id="roomPlaque">1208</span></div>
+  <div class="peephole"></div>
+
+  <div class="lock" id="lock">
+    <div class="lock-head">
+      <div class="brand-oval">Unlockurr</div>
+      <div class="sensor"><span class="led" id="led"></span><span class="lens" title="Face ID camera"></span></div>
+    </div>
+
+    <div class="bezel"><div class="screen" id="screen">
+      <div class="status">
+        <span id="clock">--:--</span>
+        <span class="chip" id="drexChip" title="Drex face decision service"><i></i>Drex</span>
+      </div>
+
+      <!-- Face ID view -->
+      <section class="view face-view" id="faceView">
+        <div class="room-big">ROOM <span id="roomScreen">1208</span></div>
+        <div class="face-ring idle" id="ring">
+          <video id="video" playsinline muted autoplay></video>
+          <div class="cam-off" id="camOff">Camera unavailable</div>
+          <svg viewBox="0 0 110 110"><circle class="ring-track" cx="55" cy="55" r="50"/><circle class="ring-scan" cx="55" cy="55" r="50"/><circle class="ring-prog" id="prog" cx="55" cy="55" r="50"/></svg>
+        </div>
+        <div class="msg" id="faceMsg">Starting Face ID…</div>
+        <button class="switch" id="toKeypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>Use keypad</button>
+      </section>
+
+      <!-- PIN view -->
+      <section class="view pin-view hidden" id="pinView">
+        <div class="pin-title">Enter PIN</div>
+        <div class="dots" id="dots"></div>
+        <div class="pin-msg" id="pinMsg">4–8 digits</div>
+        <div class="keys" id="keys"></div>
+        <button class="switch" id="toFace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M9 9.5v1M15 9.5v1M12 9v4h-1M9.5 16a4 4 0 0 0 5 0"/></svg>Face ID</button>
+      </section>
+
+      <!-- Welcome overlay -->
+      <div class="welcome" id="welcome">
+        <div class="w-avatar" id="wAvatar"><span class="burst"></span><span class="burst b2"></span></div>
+        <div class="w-hello">Welcome</div>
+        <div class="w-name" id="wName">Guest</div>
+        <div class="w-sub" id="wSub"></div>
+        <div class="bolt"><i></i></div>
+      </div>
+    </div></div>
+
+    <div class="card-slot" title="Key card slot"></div>
+    <div class="lever-wrap"><div class="lever" id="lever"></div><div class="lever-rose"></div></div>
+  </div>
+  <div class="kick"></div>
+</div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const FRAMES_NEEDED = 4, SCAN_MS = 350, UNLOCK_MS = 6000, MAX_PIN = 8, MIN_PIN = 4;
+  let S = UL.load();
+  let mode = 'face', busy = false, unlocked = false, cooldownUntil = 0;
+  let frames = [], pin = '', fails = 0, lockoutUntil = 0, camOk = false, drexOk = null;
+
+  /* ---------- basics ---------- */
+  function applyRoom() { $('roomPlaque').textContent = S.room; $('roomScreen').textContent = S.room; document.title = `Room ${S.room} · Unlockurr`; }
+  applyRoom();
+  window.addEventListener('storage', e => { if (e.key === UL.KEY) { S = UL.load(); applyRoom(); frames = []; } });
+  const tick = () => { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
+  tick(); setInterval(tick, 10000);
+  function led(c) { $('led').className = 'led' + (c ? ' on-' + c : ''); }
+
+  async function checkDrex() {
+    const chip = $('drexChip');
+    try {
+      const r = await fetch('/api/status', { cache: 'no-store' }); const j = await r.json();
+      drexOk = !!j.drex_key_configured;
+      chip.className = 'chip ' + (drexOk ? 'ok' : 'bad');
+      chip.title = drexOk ? `Drex ready (${j.model})` : 'Drex API key missing on server — face unlock disabled';
+    } catch { drexOk = false; chip.className = 'chip bad'; chip.title = 'Lock server offline — run server.py'; }
+  }
+  checkDrex(); setInterval(checkDrex, 30000);
+
+  /* ---------- views ---------- */
+  function setMode(m) {
+    mode = m;
+    $('faceView').classList.toggle('hidden', m !== 'face');
+    $('pinView').classList.toggle('hidden', m !== 'pin');
+    frames = []; setProgress(0);
+    if (m === 'pin') { pin = ''; renderDots(); setPinMsg(lockoutMsg() || '4–8 digits'); }
+  }
+  $('toKeypad').onclick = () => setMode('pin');
+  $('toFace').onclick = () => setMode('face');
+
+  function setFaceMsg(text, sub = '', bad = false) {
+    const m = $('faceMsg'); m.className = 'msg' + (bad ? ' bad' : '');
+    m.innerHTML = ''; m.append(text); if (sub) { const s = document.createElement('small'); s.textContent = sub; m.append(s); }
+  }
+  function setRing(state) { const r = $('ring'); r.classList.remove('idle', 'verifying', 'denied'); if (state) r.classList.add(state); if (!camOk) r.classList.add('nocam'); }
+  function setProgress(f) { $('prog').style.strokeDasharray = `${(f * 314).toFixed(1)} 314`; }
+
+  /* ---------- keypad ---------- */
+  const KEYS = ['1','2','3','4','5','6','7','8','9','back','0','go'];
+  const BACK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zM17 9l-6 6M11 9l6 6"/></svg>';
+  const GO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L19 7"/></svg>';
+  const keyEls = {};
+  for (const k of KEYS) {
+    const b = document.createElement('button');
+    b.className = 'key' + (k === 'back' ? ' fn' : k === 'go' ? ' go' : '');
+    b.innerHTML = k === 'back' ? BACK_SVG : k === 'go' ? GO_SVG : k;
+    b.setAttribute('aria-label', k === 'back' ? 'Delete' : k === 'go' ? 'Enter' : k);
+    b.addEventListener('pointerdown', e => { e.preventDefault(); press(k); });
+    $('keys').appendChild(b); keyEls[k] = b;
+  }
+  function renderDots(bad = false) {
+    const d = $('dots'); d.innerHTML = ''; d.classList.toggle('bad', bad);
+    const n = Math.max(MIN_PIN, Math.min(MAX_PIN, pin.length + (pin.length >= MIN_PIN && pin.length < MAX_PIN ? 1 : 0)));
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('span');
+      s.className = 'dot' + (i < pin.length ? ' f' : i >= MIN_PIN ? ' opt' : '');
+      d.appendChild(s);
+    }
+    keyEls.go.disabled = pin.length < MIN_PIN;
+  }
+  function setPinMsg(t, bad = false) { const m = $('pinMsg'); m.textContent = t; m.className = 'pin-msg' + (bad ? ' bad' : ''); }
+  function lockoutMsg() { const s = Math.ceil((lockoutUntil - Date.now()) / 1000); return s > 0 ? `Too many attempts · wait ${s}s` : ''; }
+
+  function press(k) {
+    if (mode !== 'pin' || unlocked || busy) return;
+    if (lockoutMsg()) { setPinMsg(lockoutMsg(), true); return; }
+    if (k === 'back') pin = pin.slice(0, -1);
+    else if (k === 'go') return submitPin();
+    else if (pin.length < MAX_PIN) pin += k;
+    setPinMsg(pin.length ? (pin.length < MIN_PIN ? `${MIN_PIN - pin.length} more digit${MIN_PIN - pin.length > 1 ? 's' : ''}` : 'Press ✓ to unlock') : '4–8 digits');
+    renderDots();
+  }
+  document.addEventListener('keydown', e => {
+    if (mode !== 'pin') return;
+    const k = /^\d$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Enter' ? 'go' : null;
+    if (!k) return;
+    keyEls[k]?.classList.add('press'); setTimeout(() => keyEls[k]?.classList.remove('press'), 120);
+    press(k);
+  });
+
+  async function submitPin() {
+    if (pin.length < MIN_PIN) return;
+    busy = true;
+    const h = await UL.hashPin(pin);
+    S = UL.load();
+    const user = S.users.find(u => (u.pins || []).some(p => p.hash === h));
+    pin = '';
+    busy = false;
+    if (user) { fails = 0; renderDots(); return unlock(user, 'PIN'); }
+    fails++;
+    UL.addLog({ kind: 'deny', method: 'PIN', detail: 'Incorrect PIN' });
+    led('red'); setTimeout(() => led(''), 900);
+    renderDots(true);
+    if (fails >= 5) { lockoutUntil = Date.now() + 30000; fails = 0; }
+    setPinMsg(lockoutMsg() || `Incorrect PIN · ${5 - fails} tries left`, true);
+    setTimeout(() => renderDots(), 600);
+  }
+  setInterval(() => { if (mode === 'pin' && lockoutUntil && lockoutMsg()) setPinMsg(lockoutMsg(), true); else if (lockoutUntil && !lockoutMsg()) { lockoutUntil = 0; if (mode === 'pin') setPinMsg('4–8 digits'); } }, 1000);
+  renderDots();
+
+  /* ---------- unlock animation ---------- */
+  function unlock(user, method, extra = '') {
+    unlocked = true; frames = []; setProgress(0);
+    UL.addLog({ kind: 'unlock', method, userId: user.id, name: UL.fullName(user), detail: extra });
+    const wa = $('wAvatar'); wa.querySelector('.avatar')?.remove();
+    wa.prepend(UL.avatar(user));
+    const check = document.createElement('div'); check.className = 'w-check';
+    check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#04140e" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    wa.querySelector('.w-check')?.remove(); wa.appendChild(check);
+    $('wName').textContent = UL.fullName(user);
+    $('wSub').textContent = method === 'Face ID' ? 'Face ID · verified by Drex' : 'Unlocked with PIN';
+    const w = $('welcome'); w.classList.remove('show'); void w.offsetWidth; w.classList.add('show');
+    led('green');
+    setTimeout(() => $('lever').classList.add('down'), 700);
+    setTimeout(() => $('door').classList.add('ajar'), 1300);
+    setTimeout(relock, UNLOCK_MS);
+  }
+  function relock() {
+    $('welcome').classList.remove('show'); $('lever').classList.remove('down'); $('door').classList.remove('ajar');
+    led(''); unlocked = false; cooldownUntil = Date.now() + 2500; setMode('face'); idleMsg();
+  }
+  $('welcome').addEventListener('click', relock);
+
+  /* ---------- Face ID ---------- */
+  function enrolled() { return S.users.filter(u => (u.faces || []).length); }
+  function idleMsg() {
+    if (!camOk) return setFaceMsg('Camera unavailable', 'Use the keypad to unlock', true);
+    if (!enrolled().length) return setFaceMsg('No faces enrolled', 'Add one in Lock Manager');
+    if (drexOk === false) return setFaceMsg('Face ID offline', 'Drex unavailable · use keypad', true);
+    setFaceMsg('Look at the camera', 'Face ID by Drex');
+  }
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      $('video').srcObject = stream; await $('video').play(); camOk = true;
+    } catch (e) { camOk = false; console.warn('camera', e); }
+    setRing('idle');
+  }
+
+  async function scanLoop() {
+    try {
+      const v = $('video');
+      if (mode === 'face' && !unlocked && !busy && camOk && !document.hidden && Date.now() > cooldownUntil && v.readyState >= 2 && enrolled().length && drexOk !== false) {
+        const r = await UL.describe(v);
+        if (r) {
+          frames.push({ d: r.d, score: r.score, w: r.box.width / v.videoWidth });
+          if (frames.length > FRAMES_NEEDED) frames.shift();
+          setRing(null); setProgress(frames.length / FRAMES_NEEDED);
+          setFaceMsg('Hold still…', 'Scanning face');
+          if (frames.length === FRAMES_NEEDED) await verify(frames.splice(0));
+        } else {
+          if (frames.length) { frames = []; setProgress(0); }
+          setRing('idle'); idleMsg();
+        }
+      } else if (mode === 'face' && !unlocked && !busy && Date.now() > cooldownUntil) { setRing('idle'); idleMsg(); }
+    } catch (e) { console.error(e); }
+    setTimeout(scanLoop, SCAN_MS);
+  }
+
+  async function verify(fs) {
+    busy = true; setRing('verifying'); led('blue');
+    setFaceMsg('Verifying…', 'Drex is checking your face');
+    S = UL.load();
+    const cands = enrolled().map(u => {
+      const per = fs.map(f => Math.min(...u.faces.map(s => UL.dist(f.d, s.d))));
+      return { id: u.id, name: UL.fullName(u), samples: u.faces.length,
+        mean: per.reduce((a, b) => a + b, 0) / per.length, best: Math.min(...per), worst: Math.max(...per) };
+    }).sort((a, b) => a.mean - b.mean).slice(0, 8);
+    const scores = fs.map(f => f.score);
+    const body = { room: S.room, candidates: cands, capture: {
+      frames: fs.length, detection: scores.reduce((a, b) => a + b, 0) / scores.length,
+      min_detection: Math.min(...scores), face_width: fs.reduce((a, f) => a + f.w, 0) / fs.length } };
+    let res;
+    try {
+      const r = await fetch('/api/identify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      res = await r.json();
+    } catch { res = { ok: false, error: 'drex_unavailable', message: 'Lock server unreachable' }; }
+    busy = false; setProgress(0);
+
+    if (res.ok && res.unlock) {
+      const user = S.users.find(u => u.id === res.user_id);
+      if (user) return unlock(user, 'Face ID', `Drex p=${res.probability} · ${res.request_id}`);
+    }
+    led('red'); setTimeout(() => led(''), 1200);
+    setRing('denied'); setTimeout(() => setRing('idle'), 500);
+    if (!res.ok) {
+      setFaceMsg('Face ID unavailable', res.error === 'drex_unavailable' ? 'Drex offline · use keypad' : 'Error · use keypad', true);
+      UL.addLog({ kind: 'deny', method: 'Face ID', detail: `Drex unavailable: ${res.message || res.error}` });
+      cooldownUntil = Date.now() + 8000; checkDrex();
+    } else {
+      setFaceMsg('Face not recognized', 'Try again or use keypad', true);
+      UL.addLog({ kind: 'deny', method: 'Face ID', detail: `${res.reason} · ${res.request_id}` });
+      cooldownUntil = Date.now() + 3000;
+    }
+  }
+
+  (async () => {
+    await startCamera();
+    if (!camOk) { idleMsg(); return; }
+    setFaceMsg('Loading Face ID…', 'Preparing face models');
+    try { await UL.loadFace(); } catch (e) { console.error(e); setFaceMsg('Face models failed to load', 'Use the keypad', true); return; }
+    idleMsg(); scanLoop();
+  })();
+})();
+</script>
+</body>
+</html>

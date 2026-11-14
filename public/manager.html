@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unlockurr Lock Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<script src="shared.js"></script>
+<style>
+  :root {
+    --bg: #f3f5f9; --surface: #ffffff; --surface-2: #f7f8fb; --border: #e2e6ee; --text: #121826; --muted: #667085;
+    --accent: #2f5fe0; --accent-ink: #fff; --ok: #0f9d63; --bad: #d92d44; --navy: #10265f; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 6px 20px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0c1018; --surface: #141a25; --surface-2: #19202d; --border: #273042; --text: #e7ebf3; --muted: #93a0b5;
+    --accent: #5b8bff; --accent-ink: #fff; --ok: #33c28a; --bad: #ff6378; --shadow: 0 1px 2px rgba(0,0,0,.4); } }
+  :root[data-theme="dark"] { --bg: #0c1018; --surface: #141a25; --surface-2: #19202d; --border: #273042; --text: #e7ebf3; --muted: #93a0b5; --accent: #5b8bff; --ok: #33c28a; --bad: #ff6378; --shadow: 0 1px 2px rgba(0,0,0,.4); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+  button, input { font: inherit; color: inherit; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .brand-oval { display: inline-flex; align-items: center; justify-content: center; padding: 6px 20px 7px; border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 30%, #2a4fb0, var(--navy) 70%); color: #eef2ff; font: italic 700 18px/1 Georgia, "Times New Roman", serif;
+    box-shadow: inset 0 0 0 2px var(--navy), inset 0 0 0 3.5px #d7def5, 0 1px 3px rgba(0,0,0,.3); text-shadow: 0 1px 1px rgba(0,0,0,.4); flex: none; }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); padding: 7px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.danger { color: var(--bad); }
+  .btn.sm { padding: 4px 9px; font-size: 12.5px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 16px; } header { padding: 10px 16px; flex-wrap: wrap; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .card > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; }
+  .card .body { padding: 0 16px 16px; }
+  .stack { display: grid; gap: 20px; }
+  .guest { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; border-top: 1px solid var(--border); }
+  .guest:hover { background: var(--surface-2); } .guest.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .guest .meta { flex: 1; min-width: 0; } .guest .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .guest .tags { display: flex; gap: 6px; margin-top: 2px; }
+  .tag { font-size: 11.5px; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+  .tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+  .empty { padding: 26px 16px; text-align: center; color: var(--muted); border-top: 1px solid var(--border); }
+  .avatar { border-radius: 50%; display: grid; place-items: center; overflow: hidden; color: #fff; font-weight: 600; flex: none; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .av40 { width: 40px; height: 40px; font-size: 15px; } .av96 { width: 96px; height: 96px; font-size: 34px; }
+
+  .editor .body { display: grid; gap: 22px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; } .row > label { flex: 1 1 180px; }
+  label.f { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); }
+  input[type=text], input[type=password], input.in { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 14px; }
+  input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: var(--accent); }
+  .sect h3 { font-size: 14px; margin: 0 0 4px; } .sect p.hint { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
+  .pfp-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .pin-add { display: flex; gap: 8px; flex-wrap: wrap; } .pin-add input { flex: 1 1 140px; letter-spacing: .25em; font-variant-numeric: tabular-nums; }
+  .pin-list { display: grid; gap: 6px; margin-top: 10px; }
+  .pin-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+  .pin-item .mask { font-family: ui-monospace, Menlo, monospace; letter-spacing: .2em; } .pin-item .grow { flex: 1; color: var(--muted); font-size: 12.5px; }
+  .err { color: var(--bad); font-size: 12.5px; min-height: 1.2em; margin-top: 6px; } .okmsg { color: var(--ok); }
+  .faces { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .face { position: relative; width: 72px; height: 72px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .face img { width: 100%; height: 100%; object-fit: cover; }
+  .face button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; font-size: 12px; line-height: 20px; padding: 0; }
+  .actions { display: flex; gap: 8px; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 14px; flex-wrap: wrap; }
+  .placeholder { padding: 60px 20px; text-align: center; color: var(--muted); }
+  .log { max-height: 300px; overflow: auto; }
+  .log-item { display: flex; gap: 10px; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 12.5px; align-items: baseline; }
+  .log-item .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; width: 62px; }
+  .log-item .k { font-weight: 600; } .log-item .k.ok { color: var(--ok); } .log-item .k.bad { color: var(--bad); }
+  .log-item .d { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .status-line { display: flex; align-items: center; gap: 8px; font-size: 13px; } .status-line i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .status-line.ok i { background: var(--ok); } .status-line.bad i { background: var(--bad); }
+
+  dialog { border: 0; border-radius: 16px; padding: 0; background: var(--surface); color: var(--text); width: min(460px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  dialog::backdrop { background: rgba(8,12,20,.55); backdrop-filter: blur(3px); }
+  .dlg-h { padding: 16px 18px 0; font-weight: 600; font-size: 16px; } .dlg-b { padding: 14px 18px; display: grid; gap: 12px; }
+  .cam { position: relative; aspect-ratio: 4/3; border-radius: 12px; overflow: hidden; background: #000; }
+  .cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .cam .guide { position: absolute; left: 50%; top: 48%; width: 46%; aspect-ratio: .78; transform: translate(-50%,-50%); border: 2px dashed rgba(255,255,255,.7); border-radius: 50%; }
+  .dlg-f { display: flex; justify-content: space-between; gap: 8px; padding: 0 18px 16px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand-oval">Unlockurr</div>
+  <div><h1>Lock Manager</h1><div class="sub">Room <span id="hdrRoom">1208</span> · Face ID by Drex</div></div>
+  <div class="spacer"></div>
+  <a class="btn" href="lock.html" target="unlockurr-lock">Open door lock ↗</a>
+  <button class="btn primary" id="addGuest">+ Add guest</button>
+</header>
+
+<main>
+  <div class="stack">
+    <section class="card">
+      <h2>Guests <span id="guestCount" class="tag">0</span></h2>
+      <div id="guestList"></div>
+    </section>
+    <section class="card">
+      <h2>Lock settings</h2>
+      <div class="body" style="display:grid;gap:12px">
+        <label class="f">Room number<input type="text" id="room" maxlength="8" class="in"></label>
+        <div class="status-line" id="drexStatus"><i></i><span>Checking Drex…</span></div>
+        <button class="btn danger sm" id="reset" style="justify-self:start">Reset all lock data</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card editor" id="editor"><div class="placeholder">Select a guest or click <b>+ Add guest</b> to program PINs and faces.</div></section>
+    <section class="card">
+      <h2>Activity <button class="btn sm" id="clearLog">Clear</button></h2>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+</main>
+
+<dialog id="camDlg">
+  <div class="dlg-h">Enroll face · <span id="camWho"></span></div>
+  <div class="dlg-b">
+    <div class="cam"><video id="camVideo" playsinline muted autoplay></video><div class="guide"></div></div>
+    <div class="err" id="camMsg" style="color:var(--muted)">Center the face in the oval with good lighting. Capture 3–5 samples from slightly different angles.</div>
+  </div>
+  <div class="dlg-f"><button class="btn" id="camClose">Done</button><button class="btn primary" id="camShot">Capture sample</button></div>
+</dialog>
+
+<template id="editorTpl">
+  <h2><span id="edTitle">New guest</span></h2>
+  <div class="body">
+    <div class="sect">
+      <div class="pfp-row">
+        <div id="edAvatar"></div>
+        <div style="display:grid;gap:8px">
+          <div class="row" style="gap:8px">
+            <label class="btn sm">Upload photo<input type="file" accept="image/*" id="pfpFile" hidden></label>
+            <button class="btn sm danger" id="pfpRemove">Remove</button>
+          </div>
+          <span class="hint" style="color:var(--muted);font-size:12px">Shown on the lock's welcome screen. Without one, initials are used.</span>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <label class="f">First name<input type="text" id="first" maxlength="30" autocomplete="off"></label>
+      <label class="f">Last name<input type="text" id="last" maxlength="30" autocomplete="off"></label>
+    </div>
+
+    <div class="sect">
+      <h3>PIN codes</h3>
+      <p class="hint">4 to 8 digits. Each PIN must be unique on this lock. PINs are stored hashed and can't be viewed after saving.</p>
+      <div class="pin-add">
+        <input type="password" id="pinIn" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="new-password" class="in">
+        <input type="password" id="pinIn2" inputmode="numeric" maxlength="8" placeholder="Confirm" autocomplete="new-password" class="in">
+        <button class="btn" id="pinAdd">Add PIN</button>
+      </div>
+      <div class="err" id="pinErr"></div>
+      <div class="pin-list" id="pinList"></div>
+    </div>
+
+    <div class="sect">
+      <h3>Face ID</h3>
+      <p class="hint">Enrolled faces are turned into on-device face embeddings. At the door, Drex decides who matches. Up to 6 samples.</p>
+      <div class="row" style="gap:8px">
+        <button class="btn" id="faceCam">Capture with camera</button>
+        <label class="btn">Upload face photo<input type="file" accept="image/*" id="faceFile" hidden></label>
+        <button class="btn" id="faceFromPfp">Use profile photo</button>
+      </div>
+      <div class="err" id="faceErr"></div>
+      <div class="faces" id="faceList"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn danger" id="delGuest">Delete guest</button>
+      <div class="row" style="gap:8px"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="save">Save guest</button></div>
+    </div>
+  </div>
+</template>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const MAX_FACES = 6;
+  let S = UL.load(), selId = null, draft = null, dirty = false;
+
+  /* ---------- guest list ---------- */
+  function renderList() {
+    const el = $('guestList'); el.innerHTML = '';
+    $('guestCount').textContent = S.users.length;
+    if (!S.users.length) { el.innerHTML = '<div class="empty">No guests yet.</div>'; return; }
+    for (const u of S.users) {
+      const row = document.createElement('div'); row.className = 'guest' + (u.id === selId ? ' sel' : '');
+      row.appendChild(UL.avatar(u, 'av40'));
+      const m = document.createElement('div'); m.className = 'meta';
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = UL.fullName(u);
+      const tags = document.createElement('div'); tags.className = 'tags';
+      const np = (u.pins || []).length, nf = (u.faces || []).length;
+      tags.innerHTML = `<span class="tag ${np ? 'ok' : ''}">${np} PIN${np === 1 ? '' : 's'}</span><span class="tag ${nf ? 'ok' : ''}">${nf ? 'Face ID · ' + nf : 'No face'}</span>`;
+      m.append(nm, tags); row.appendChild(m);
+      row.onclick = () => select(u.id);
+      el.appendChild(row);
+    }
+  }
+  function select(id) {
+    if (dirty && !confirm('Discard unsaved changes?')) return;
+    selId = id; const u = S.users.find(x => x.id === id);
+    draft = u ? structuredClone(u) : { id: UL.uid(), first: '', last: '', pfp: null, pins: [], faces: [], created: Date.now(), isNew: true };
+    dirty = false; renderEditor(); renderList();
+  }
+  $('addGuest').onclick = () => select(null);
+
+  /* ---------- editor ---------- */
+  function renderEditor() {
+    const ed = $('editor');
+    if (!draft) { ed.innerHTML = '<div class="placeholder">Select a guest or click <b>+ Add guest</b> to program PINs and faces.</div>'; return; }
+    ed.innerHTML = ''; ed.appendChild($('editorTpl').content.cloneNode(true));
+    $('edTitle').textContent = draft.isNew ? 'New guest' : UL.fullName(draft);
+    $('first').value = draft.first; $('last').value = draft.last;
+    $('delGuest').classList.toggle('hidden', !!draft.isNew);
+    paintAvatar(); paintPins(); paintFaces();
+
+    for (const k of ['first', 'last']) $(k).oninput = e => { draft[k] = e.target.value; dirty = true; paintAvatar(); };
+    $('pfpFile').onchange = async e => {
+      const f = e.target.files[0]; if (!f) return;
+      try { const img = await UL.fileToImage(f); draft.pfp = UL.squareCrop(img, img.naturalWidth, img.naturalHeight, null, 256); dirty = true; paintAvatar(); }
+      catch { alert('Could not read that image.'); }
+      e.target.value = '';
+    };
+    $('pfpRemove').onclick = () => { draft.pfp = null; dirty = true; paintAvatar(); };
+    $('pinAdd').onclick = addPin;
+    for (const k of ['pinIn', 'pinIn2']) {
+      $(k).oninput = e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8); $('pinErr').textContent = ''; };
+      $(k).onkeydown = e => { if (e.key === 'Enter') addPin(); };
+    }
+    $('faceCam').onclick = openCam;
+    $('faceFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) { const img = await UL.fileToImage(f).catch(() => null); if (img) enrollFrom(img, img.naturalWidth, img.naturalHeight, $('faceErr')); } };
+    $('faceFromPfp').onclick = async () => {
+      if (!draft.pfp) return showErr($('faceErr'), 'Upload a profile photo first.');
+      const img = new Image(); img.src = draft.pfp; await img.decode(); enrollFrom(img, 256, 256, $('faceErr'));
+    };
+    $('save').onclick = saveDraft;
+    $('cancel').onclick = () => { dirty = false; draft = null; selId = null; renderEditor(); renderList(); };
+    $('delGuest').onclick = () => {
+      if (!confirm(`Delete ${UL.fullName(draft)}? Their PINs and Face ID will stop working immediately.`)) return;
+      S = UL.load(); S.users = S.users.filter(u => u.id !== draft.id); UL.save(S);
+      dirty = false; draft = null; selId = null; renderEditor(); renderList();
+    };
+  }
+  function paintAvatar() { const a = $('edAvatar'); a.innerHTML = ''; a.appendChild(UL.avatar(draft, 'av96')); }
+  function showErr(el, t, ok = false) { el.textContent = t; el.classList.toggle('okmsg', ok); }
+
+  function paintPins() {
+    const l = $('pinList'); l.innerHTML = '';
+    if (!draft.pins.length) { l.innerHTML = '<div style="color:var(--muted);font-size:12.5px">No PINs yet.</div>'; return; }
+    draft.pins.forEach((p, i) => {
+      const it = document.createElement('div'); it.className = 'pin-item';
+      it.innerHTML = `<span class="mask">${'•'.repeat(p.len)}</span><span class="grow">${p.len}-digit PIN · added ${new Date(p.added).toLocaleDateString()}</span>`;
+      const b = document.createElement('button'); b.className = 'btn sm danger'; b.textContent = 'Remove';
+      b.onclick = () => { draft.pins.splice(i, 1); dirty = true; paintPins(); };
+      it.appendChild(b); l.appendChild(it);
+    });
+  }
+  async function addPin() {
+    const a = $('pinIn').value, b = $('pinIn2').value, err = $('pinErr');
+    if (!UL.validPin(a)) return showErr(err, 'PIN must be 4 to 8 digits.');
+    if (a !== b) return showErr(err, 'PINs don’t match.');
+    const h = await UL.hashPin(a);
+    if (draft.pins.some(p => p.hash === h)) return showErr(err, 'This guest already has that PIN.');
+    const owner = UL.load().users.find(u => u.id !== draft.id && (u.pins || []).some(p => p.hash === h));
+    if (owner) return showErr(err, `That PIN is already assigned to ${UL.fullName(owner)}.`);
+    draft.pins.push({ hash: h, len: a.length, added: Date.now() }); dirty = true;
+    $('pinIn').value = $('pinIn2').value = '';
+    showErr(err, /^(\d)\1+$/.test(a) || '0123456789'.includes(a) || '9876543210'.includes(a) ? 'Added — note: this PIN is easy to guess.' : 'PIN added. Save to apply.', true);
+    paintPins();
+  }
+
+  function paintFaces() {
+    const l = $('faceList'); l.innerHTML = '';
+    draft.faces.forEach((f, i) => {
+      const d = document.createElement('div'); d.className = 'face';
+      const img = new Image(); img.src = f.thumb; d.appendChild(img);
+      const x = document.createElement('button'); x.textContent = '✕'; x.title = 'Remove sample';
+      x.onclick = () => { draft.faces.splice(i, 1); dirty = true; paintFaces(); };
+      d.appendChild(x); l.appendChild(d);
+    });
+    $('faceCam').disabled = draft.faces.length >= MAX_FACES;
+  }
+  async function enrollFrom(src, w, h, msgEl) {
+    if (draft.faces.length >= MAX_FACES) return showErr(msgEl, `Maximum ${MAX_FACES} samples.`), false;
+    showErr(msgEl, 'Loading face models…', true);
+    try { await UL.loadFace(); } catch { return showErr(msgEl, 'Face models failed to load (check internet connection).'), false; }
+    showErr(msgEl, 'Detecting face…', true);
+    const r = await UL.describe(src);
+    if (!r) return showErr(msgEl, 'No face detected. Try a clearer, front-facing photo.'), false;
+    if (r.score < 0.7) return showErr(msgEl, 'Face is unclear — improve lighting and try again.'), false;
+    draft.faces.push({ d: r.d, thumb: UL.squareCrop(src, w, h, r.box, 112), added: Date.now() });
+    dirty = true; paintFaces();
+    showErr(msgEl, `Sample ${draft.faces.length} captured. Save to apply.`, true);
+    return true;
+  }
+
+  function saveDraft() {
+    const first = draft.first.trim(), last = draft.last.trim();
+    if (!first || !last) { alert('Enter a first and last name.'); return; }
+    if (!draft.pins.length && !draft.faces.length && !confirm('This guest has no PIN or face and won’t be able to unlock. Save anyway?')) return;
+    S = UL.load();
+    const rec = { ...draft, first, last }; delete rec.isNew;
+    const i = S.users.findIndex(u => u.id === rec.id);
+    if (i >= 0) S.users[i] = rec; else S.users.push(rec);
+    // re-check PIN uniqueness against latest data
+    const others = S.users.filter(u => u.id !== rec.id).flatMap(u => (u.pins || []).map(p => p.hash));
+    if (rec.pins.some(p => others.includes(p.hash))) { alert('One of these PINs is already assigned to another guest.'); return; }
+    if (!UL.save(S)) return;
+    selId = rec.id; draft = structuredClone(rec); dirty = false;
+    renderEditor(); renderList();
+  }
+
+  /* ---------- camera enrollment ---------- */
+  let camStream = null;
+  async function openCam() {
+    $('camWho').textContent = (draft.first || 'New guest');
+    $('camMsg').textContent = 'Center the face in the oval with good lighting. Capture 3–5 samples from slightly different angles.';
+    $('camDlg').showModal();
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+      $('camVideo').srcObject = camStream; await $('camVideo').play();
+    } catch { $('camMsg').textContent = 'Camera unavailable — allow camera access or upload a photo instead.'; }
+    UL.loadFace().catch(() => {});
+  }
+  function closeCam() { camStream?.getTracks().forEach(t => t.stop()); camStream = null; if ($('camDlg').open) $('camDlg').close(); }
+  $('camClose').onclick = closeCam;
+  $('camDlg').addEventListener('close', closeCam);
+  $('camShot').onclick = async () => {
+    const v = $('camVideo'); if (!camStream || v.readyState < 2) return;
+    $('camShot').disabled = true;
+    // snapshot the frame so thumbnail and descriptor come from the same image
+    const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    await enrollFrom(c, c.width, c.height, $('camMsg'));
+    $('camShot').disabled = draft.faces.length >= MAX_FACES;
+  };
+
+  /* ---------- settings, log, status ---------- */
+  $('room').value = S.room; $('hdrRoom').textContent = S.room;
+  $('room').onchange = e => { const v = e.target.value.trim() || '1208'; S = UL.load(); S.room = v; UL.save(S); $('hdrRoom').textContent = v; e.target.value = v; };
+  $('reset').onclick = () => { if (confirm('Erase every guest, PIN, face and the activity log on this lock?')) { localStorage.removeItem(UL.KEY); S = UL.load(); draft = null; selId = null; dirty = false; $('room').value = S.room; renderEditor(); renderList(); renderLog(); } };
+  $('clearLog').onclick = () => { S = UL.load(); S.log = []; UL.save(S); renderLog(); };
+
+  function renderLog() {
+    const el = $('log'); el.innerHTML = '';
+    if (!S.log.length) { el.innerHTML = '<div class="empty">No lock activity yet.</div>'; return; }
+    for (const e of S.log.slice(0, 40)) {
+      const r = document.createElement('div'); r.className = 'log-item';
+      const t = new Date(e.t);
+      const ok = e.kind === 'unlock';
+      r.innerHTML = `<span class="t"></span><span class="k ${ok ? 'ok' : 'bad'}"></span><span class="d"></span>`;
+      r.children[0].textContent = t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      r.children[1].textContent = ok ? `${e.name} unlocked` : 'Denied';
+      r.children[2].textContent = `${e.method}${e.detail ? ' · ' + e.detail : ''}`;
+      r.title = t.toLocaleString() + (e.detail ? '\n' + e.detail : '');
+      el.appendChild(r);
+    }
+  }
+  window.addEventListener('storage', e => { if (e.key === UL.KEY) { S = UL.load(); renderLog(); if (!dirty) renderList(); $('hdrRoom').textContent = S.room; } });
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  (async () => {
+    const st = $('drexStatus');
+    try {
+      const j = await (await fetch('/api/status', { cache: 'no-store' })).json();
+      st.className = 'status-line ' + (j.drex_key_configured ? 'ok' : 'bad');
+      st.lastChild.textContent = j.drex_key_configured ? `Drex connected · ${j.model}` : 'Drex key missing on server — Face ID disabled';
+    } catch { st.className = 'status-line bad'; st.lastChild.textContent = 'Lock server offline — run server.py'; }
+  })();
+
+  renderList(); renderLog();
+})();
+</script>
+</body>
+</html>
