@@ -97,13 +97,7 @@ const UL = (() => {
       .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.5 }))
       .withFaceLandmarks().withFaceDescriptor();
     if (!r) return null;
-    return { d: Array.from(r.descriptor, v => +v.toFixed(5)), score: r.detection.score, box: r.detection.box,
-      lm: r.landmarks.positions.map(p => [p.x, p.y]) };
-  }
-  // lighter than describe(): detection + 68 landmarks only, used for the liveness head-turn check
-  async function landmarks(input, inputSize = 224) {
-    const r = await faceapi.detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.5 })).withFaceLandmarks();
-    return r ? { lm: r.landmarks.positions.map(p => [p.x, p.y]), score: r.detection.score, box: r.detection.box } : null;
+    return { d: Array.from(r.descriptor, v => +v.toFixed(5)), score: r.detection.score, box: r.detection.box };
   }
   function dist(a, b) {
     let s = 0; for (let i = 0; i < a.length; i++) { const x = a[i] - b[i]; s += x * x; }
@@ -129,5 +123,5 @@ const UL = (() => {
   }
 
   return { load, save, addLog, hashPin, validPin, uid, fullName, accessStatus, accessLabel, fmtWhen, initials, avatar,
-    loadFace, warmUp, describe, landmarks, dist, squareCrop, fileToImage, KEY };
+    loadFace, warmUp, describe, dist, squareCrop, fileToImage, KEY };
 })();

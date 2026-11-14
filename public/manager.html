@@ -112,7 +112,7 @@
   .log { max-height: 300px; overflow: auto; }
   .log-item { display: flex; gap: 10px; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 12.5px; align-items: baseline; }
   .log-item .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; width: 62px; }
-  .log-item .k { font-weight: 600; } .log-item .k.ok { color: var(--ok); } .log-item .k.bad { color: var(--bad); }
+  .log-item .k { font-weight: 600; } .log-item .k.ok { color: var(--ok); } .log-item .k.bad { color: var(--bad); } .log-item .k.warn { color: #d97706; }
   .log-item .d { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .status-line { display: flex; align-items: center; gap: 8px; font-size: 13px; } .status-line i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .status-line.ok i { background: var(--ok); } .status-line.bad i { background: var(--bad); }
@@ -642,10 +642,10 @@
     for (const e of S.log.slice(0, 40)) {
       const r = document.createElement('div'); r.className = 'log-item';
       const t = new Date(e.t);
-      const ok = e.kind === 'unlock';
-      r.innerHTML = `<span class="t"></span><span class="k ${ok ? 'ok' : 'bad'}"></span><span class="d"></span>`;
+      const ok = e.kind === 'unlock', who = !ok && e.name;   // a refusal that knows who it was (e.g. expired access)
+      r.innerHTML = `<span class="t"></span><span class="k ${ok ? 'ok' : who ? 'warn' : 'bad'}"></span><span class="d"></span>`;
       r.children[0].textContent = t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      r.children[1].textContent = ok ? `${e.name} unlocked` : 'Denied';
+      r.children[1].textContent = ok ? `${e.name} unlocked` : who ? `${e.name}${e.category ? ' (' + e.category + ')' : ''} denied` : 'Denied';
       r.children[2].textContent = `${e.method}${e.detail ? ' · ' + e.detail : ''}`;
       r.title = t.toLocaleString() + (e.detail ? '\n' + e.detail : '');
       el.appendChild(r);

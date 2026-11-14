@@ -51,22 +51,6 @@ Face unlock **fails closed**. If Drex is unreachable, the key is missing or the 
 door stays locked and the screen shows "Face ID unavailable · use keypad". PIN entry always works.
 After 5 wrong PINs the keypad locks for 30 s.
 
-## Anti-spoofing (phone / photo)
-
-Face ID only unlocks when every check passes. Any error keeps the door locked.
-
-1. **Object check:** a COCO-SSD object detector (sharing face-api's TensorFlow) looks at the camera frame. A visible
-   cell phone, or a TV, laptop or book/photo covering the face, is refused with "Unusual Activity Detected". The
-   specific reason goes to the activity log.
-2. **Liveness challenge:** the lock asks the person to turn their head slightly left or right, chosen at random. A
-   real head changes shape as it turns (the nose moves relative to the eyes). A flat photo or screen tilted the same
-   way keeps its proportions, so it fails.
-3. **Same face:** the face that does the head turn must match the face that was identified.
-4. **Drex identity**, as described above. It runs in parallel with the challenge.
-
-This is a demo-grade defence, not certified liveness detection. A high-quality video replay that happens to turn the
-requested way could still pass. Real Face ID uses depth sensors.
-
 ## Demo limitations
 
 - User data lives in the browser's `localStorage`. In a real deployment, store enrolments and do the
