@@ -259,7 +259,7 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const FRAMES_NEEDED = 4, SCAN_MS = 350, UNLOCK_MS = 6000, MAX_PIN = 8, MIN_PIN = 4;
+  const FRAMES_NEEDED = 3, SCAN_IDLE_MS = 200, SCAN_ACTIVE_MS = 30, DETECT_SIZE = 224, UNLOCK_MS = 6000, MAX_PIN = 8, MIN_PIN = 4;
   let S = UL.load();
   let mode = 'face', busy = false, unlocked = false, cooldownUntil = 0;
   let frames = [], pin = '', fails = 0, lockoutUntil = 0, camOk = false, drexOk = null;
@@ -377,8 +377,8 @@
     $('wSub').textContent = method === 'Face ID' ? 'Face ID · verified by Drex' : 'Unlocked with PIN';
     const w = $('welcome'); w.classList.remove('show'); void w.offsetWidth; w.classList.add('show');
     led('green');
-    setTimeout(() => $('lever').classList.add('down'), 700);
-    setTimeout(() => $('door').classList.add('ajar'), 1300);
+    setTimeout(() => $('lever').classList.add('down'), 200);
+    setTimeout(() => $('door').classList.add('ajar'), 600);
     setTimeout(relock, UNLOCK_MS);
   }
   function relock() {
@@ -408,7 +408,7 @@
     try {
       const v = $('video');
       if (mode === 'face' && !unlocked && !busy && camOk && !document.hidden && Date.now() > cooldownUntil && v.readyState >= 2 && enrolled().length && drexOk !== false) {
-        const r = await UL.describe(v);
+        const r = await UL.describe(v, DETECT_SIZE);
         if (r) {
           frames.push({ d: r.d, score: r.score, w: r.box.width / v.videoWidth });
           if (frames.length > FRAMES_NEEDED) frames.shift();
@@ -421,7 +421,7 @@
         }
       } else if (mode === 'face' && !unlocked && !busy && Date.now() > cooldownUntil) { setRing('idle'); idleMsg(); }
     } catch (e) { console.error(e); }
-    setTimeout(scanLoop, SCAN_MS);
+    setTimeout(scanLoop, frames.length ? SCAN_ACTIVE_MS : SCAN_IDLE_MS);
   }
 
   async function verify(fs) {
@@ -457,7 +457,7 @@
     } else {
       setFaceMsg('Face not recognized', 'Try again or use keypad', true);
       UL.addLog({ kind: 'deny', method: 'Face ID', detail: `${res.reason} · ${res.request_id}` });
-      cooldownUntil = Date.now() + 3000;
+      cooldownUntil = Date.now() + 1500;
     }
   }
 

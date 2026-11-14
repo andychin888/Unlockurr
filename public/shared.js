@@ -63,9 +63,9 @@ const UL = (() => {
     ready.catch(() => { ready = null; });
     return ready;
   }
-  async function describe(input) {
+  async function describe(input, inputSize = 320) {
     const r = await faceapi
-      .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+      .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.5 }))
       .withFaceLandmarks().withFaceDescriptor();
     if (!r) return null;
     return { d: Array.from(r.descriptor, v => +v.toFixed(5)), score: r.detection.score, box: r.detection.box };
