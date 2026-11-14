@@ -331,7 +331,7 @@
                 <svg viewBox="0 0 108 81" preserveAspectRatio="none"><rect class="ring-track" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-scan" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/><rect class="ring-prog" id="prog" x="2" y="2" width="104" height="77" rx="7" pathLength="314"/></svg>
               </div>
               <div class="msg" id="faceMsg">Starting Face ID…</div>
-              <div class="switches"><button class="switch" id="toKeypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>Use keypad</button><button class="switch" id="toKey"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3M16 7l3 3M14 9l2 2"/></svg>Use key</button></div>
+              <div class="switches"><button class="switch" id="toKeypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>Use keypad</button></div>
             </section>
 
             <!-- PIN view -->
@@ -531,9 +531,11 @@
   }
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && awake && !unlocked) return sleep();
-    if (mode !== 'pin' || !awake) return;
+    if (!awake || unlocked) return;
     const k = /^\d$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Enter' ? 'go' : null;
     if (!k) return;
+    // typing a digit on the Face ID screen opens the keypad and enters it
+    if (mode !== 'pin') { if (!/^\d$/.test(k)) return; setMode('pin'); }
     keyEls[k]?.classList.add('press'); setTimeout(() => keyEls[k]?.classList.remove('press'), 120);
     press(k);
   });
@@ -661,7 +663,6 @@
     lastActivity = Date.now(); if (mode !== 'face') setMode('face');
     showKeyhole(true); setFaceMsg('Key override', 'Tap the keyhole on the handle');
   }
-  $('toKey').onclick = revealKey;
   $('roseCap').addEventListener('click', e => { if (awake) { e.stopPropagation(); revealKey(); } });
   $('keyhole').addEventListener('click', e => {
     if (!awake || unlocked || busy || !$('leverWrap').classList.contains('open-cap')) return;
